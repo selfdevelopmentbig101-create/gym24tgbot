@@ -12,7 +12,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import BotCommand, ErrorEvent
+from aiogram.types import ErrorEvent
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from config import config
@@ -24,28 +24,13 @@ from services.exercises import get_injury_rules
 from services.foods import FoodDataError, all_foods
 from services.rest_timer import rest_timers
 from services.scheduler import ReminderScheduler, set_scheduler
+from utils.commands import set_default_commands
 from utils.logging_setup import setup_logging
-from utils.middlewares import DbSessionMiddleware, RateLimitMiddleware
+from utils.middlewares import DbSessionMiddleware, LanguageMiddleware, RateLimitMiddleware
 from utils.texts import t
 
 logger = logging.getLogger(__name__)
 
-BOT_COMMANDS = [
-    BotCommand(command="start", description="Start or resume setup"),
-    BotCommand(command="profile", description="Your profile and daily targets"),
-    BotCommand(command="workout", description="Start or continue today's workout"),
-    BotCommand(command="plan", description="Your workout plan"),
-    BotCommand(command="progress", description="Weight, PRs and charts"),
-    BotCommand(command="achievements", description="Streaks and achievements"),
-    BotCommand(command="weight", description="Log body weight"),
-    BotCommand(command="food", description="Log meals and see calories and protein"),
-    BotCommand(command="reminders", description="Workout and weigh-in reminders"),
-    BotCommand(command="exercises", description="Exercise library"),
-    BotCommand(command="settings", description="Edit profile and settings"),
-    BotCommand(command="help", description="All commands"),
-    BotCommand(command="about", description="About and credits"),
-    BotCommand(command="deleteme", description="Delete all my data"),
-]
 
 
 async def on_error(event: ErrorEvent) -> bool:
@@ -69,6 +54,7 @@ def create_dispatcher(session_factory: async_sessionmaker,
     dp = Dispatcher(storage=MemoryStorage())
 
     dp.update.outer_middleware(DbSessionMiddleware(session_factory))
+    dp.update.outer_middleware(LanguageMiddleware())  # needs the session, so registered second
     rate_limiter = RateLimitMiddleware(rate_limit_max, rate_limit_window)
     dp.message.outer_middleware(rate_limiter)
     dp.callback_query.outer_middleware(rate_limiter)
@@ -114,7 +100,7 @@ async def main() -> None:
         await scheduler.load_all(session)
 
     try:
-        await bot.set_my_commands(BOT_COMMANDS)
+        await set_default_commands(bot)
         logger.info("Bot started")
         await dp.start_polling(bot)
     finally:
