@@ -3,7 +3,7 @@
 A Telegram bot that helps people gain muscle: workout plans, logging,
 progress tracking, calorie/protein targets and reminders.
 
-**Status: Phase 1 (onboarding) and Phase 2 (exercise library and plan generator) are done.**
+**Status: Phases 1–3 are done: onboarding, exercise library and plan generator, workout logger.**
 
 ## Project structure
 
@@ -15,7 +15,7 @@ database/
   base.py              Engine, sessions, SQLite foreign-key fix, table creation
   enums.py             Fixed choices (goal, sex, equipment, ...)
   models.py            Tables: users, profiles, exercises, workout_plans, plan_days,
-                       plan_exercises, media_cache
+                       plan_exercises, media_cache, workout_sessions, set_logs
 services/              Business logic, no Telegram code (reusable by a Mini App or native app)
   nutrition.py         TDEE (Mifflin-St Jeor), surplus, protein, safety limits
   validation.py        Input parsing/validation (age, height, weight...)
@@ -25,6 +25,9 @@ services/              Business logic, no Telegram code (reusable by a Mini App 
   exercises.py         Equipment/level/injury rules, substitutes, library queries
   plan_generator.py    Split + day templates -> weekly plan (pure logic)
   plans.py             Save/load/regenerate plans, swap substitutes
+  workouts.py          Workout sessions: start, log/undo sets, swap, history, summary
+  progression.py       Progressive overload suggestions (pure logic)
+  rest_timer.py        Per-user rest timers (asyncio)
 handlers/              Telegram handlers
   common.py            /start, /help, /about, /cancel, disclaimer
   onboarding.py        10-step profile form (also used to edit one field)
@@ -32,6 +35,7 @@ handlers/              Telegram handlers
   plan.py              /plan overview, open a day, regenerate
   library.py           /exercises: browse by muscle group
   cards.py             Exercise cards: image/animation, details, Next/Substitute/Log set
+  workout.py           /workout: logger card, quick buttons, typed sets, rest timer, summary
 keyboards/             Inline keyboards and callback data
 utils/
   texts.py             All user-facing texts (ready for multiple languages)
@@ -70,8 +74,8 @@ python bot.py
 The SQLite database (`gymbot.db`) is created automatically, and the exercises
 are imported from `data/core_exercises.json` on every start (safe to repeat).
 
-> **Upgrading from Phase 1:** delete `gymbot.db` once. New tables and columns
-> were added, and there are no database migrations yet (planned before launch).
+> **Upgrading from an earlier phase:** delete `gymbot.db` once. New tables and
+> columns were added, and there are no database migrations yet (planned before launch).
 
 ### Exercise images
 
@@ -107,7 +111,7 @@ They cover the calculator, input validation, the JSON import and its error
 messages, image fallback and animation building, the plan generator for every
 combination of equipment, experience, injuries and training days, and full
 simulated chats (onboarding, editing, plans, cards, substitutes, the library,
-media caching, `/deleteme`).
+media caching, workout logging with rest timers, `/deleteme`), plus the overload rules.
 
 Manual test in Telegram:
 
@@ -119,7 +123,26 @@ Manual test in Telegram:
 3. `/exercises` -> pick a muscle group -> browse with **Next** / **Substitute**.
 4. `/settings` -> **Edit profile** -> **Equipment** -> **Bodyweight only**.
    Your plan is rebuilt with bodyweight exercises.
-5. `/deleteme` removes your profile and plan.
+5. `/workout` -> **Start workout**. The card shows the target, last time's
+   numbers and a suggestion. Tap **✅ Log ...** (1 tap), or adjust with
+   **+2.5 kg / +1 rep** first (2 taps), or type `60x10`. A rest timer starts and
+   you get a message when it's over; tap its button to log the next set.
+   Try **↩️ Undo**, **🔄 Swap** (machine taken), **⏭ Next** and **🏁 Finish**.
+6. Next time you do that day, the card shows last time's sets, a
+   **🔁 Same as last time** button, and the Log button is pre-filled with the
+   suggested weight (e.g. +2.5 kg after hitting the top of the rep range).
+7. `/deleteme` removes your profile, plan and workout history.
+
+## Logging and progression
+
+- The draft (exercise, weight, reps) is stored with the workout, so it survives
+  other menus and bot restarts. A workout left open for 12+ hours is closed
+  automatically; a workout with no sets is discarded.
+- Double progression: add reps until every planned set reaches the top of the
+  range, then add 2.5 kg and restart at the bottom. Missing the bottom of the
+  range two workouts in a row suggests dropping ~10%. Bodyweight exercises
+  suggest adding load or a harder variation; timed ones add 5 s (max 120 s).
+- Rest timers live in memory: a restart during a rest period loses that one notification.
 
 ## How plans are built
 

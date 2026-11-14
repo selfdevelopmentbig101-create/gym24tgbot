@@ -20,6 +20,7 @@ from database.base import create_tables, make_engine, make_session_factory
 from handlers import get_routers
 from services.exercise_import import ExerciseDataError, import_exercises, load_exercises_file
 from services.exercises import get_injury_rules
+from services.rest_timer import rest_timers
 from utils.logging_setup import setup_logging
 from utils.middlewares import DbSessionMiddleware, RateLimitMiddleware
 from utils.texts import t
@@ -29,6 +30,7 @@ logger = logging.getLogger(__name__)
 BOT_COMMANDS = [
     BotCommand(command="start", description="Start or resume setup"),
     BotCommand(command="profile", description="Your profile and daily targets"),
+    BotCommand(command="workout", description="Start or continue today's workout"),
     BotCommand(command="plan", description="Your workout plan"),
     BotCommand(command="exercises", description="Exercise library"),
     BotCommand(command="settings", description="Edit profile and settings"),
@@ -63,6 +65,7 @@ def create_dispatcher(session_factory: async_sessionmaker,
     dp.message.outer_middleware(rate_limiter)
     dp.callback_query.outer_middleware(rate_limiter)
 
+    dp["session_factory"] = session_factory  # handlers that work outside an update (rest timer)
     dp.include_routers(*get_routers())
     dp.errors.register(on_error)
     return dp
@@ -98,6 +101,7 @@ async def main() -> None:
         logger.info("Bot started")
         await dp.start_polling(bot)
     finally:
+        rest_timers.cancel_all()
         await bot.session.close()
         await engine.dispose()
         logger.info("Bot stopped")

@@ -6,6 +6,7 @@ as if a user were tapping buttons and typing.
 """
 from datetime import datetime
 
+import pytest
 import pytest_asyncio
 from aiogram import Bot
 from aiogram.client.default import DefaultBotProperties
@@ -16,7 +17,8 @@ from sqlalchemy import select
 from bot import create_dispatcher
 from database.base import create_tables, make_engine, make_session_factory
 from database.models import MediaCache
-from services import exercise_media, plans, users
+from services import exercise_media, plans, users, workouts
+from services.rest_timer import rest_timers
 from services.exercise_import import import_exercises, load_exercises_file
 from tests.test_texts import assert_valid_telegram_html
 
@@ -261,10 +263,10 @@ async def test_plan_cards_and_substitute(env):
     assert before[1] != after[1] and before[0] == after[0] and len(set(after)) == len(after)
     assert "exercise 2 of 6" in u.last_text()
 
-    await u.tap("Log set")
-    assert "coming" in u.last_call("AnswerCallbackQuery").text
+    await u.tap("Log set")                   # opens the workout logger at this exercise
+    assert "exercise 2 of 6" in u.last_text() and "Set 1 of 3" in u.last_text()
 
-    await u.tap("Plan")
+    await u.send("/plan")
     assert "Your plan" in u.last_text()
     await u.tap("New plan")
     assert "New plan generated" in u.last_text()
@@ -330,3 +332,107 @@ async def test_media_cards_upload_once_then_reuse_file_id(env, tmp_path, monkeyp
     async with env["session_factory"]() as s:
         keys = {row.key.split(":")[0] for row in await s.scalars(select(MediaCache))}
     assert keys == {"anim", "photo"}
+
+
+# ---------- Phase 3: workout logger ----------
+
+@pytest.fixture(autouse=True)
+def no_stray_timers():
+    yield
+    rest_timers.cancel_all()
+    rest_timers.time_scale = 1.0
+
+
+async def onboard_intermediate(u: FakeUser):
+    await u.send("/start")
+    await u.tap("I understand")
+    await u.tap("Lean bulk")
+    for text, taps in (("27", ["Male"]), ("180", []), ("80", ["Intermediate", "4", "Full gym", "None",
+                                                              "No restrictions"])):
+        await u.send(text)
+        for label in taps:
+            await u.tap(label)
+
+
+async def test_workout_logging_flow(env):
+    u = FakeUser(env, 9191)
+    await onboard_intermediate(u)
+
+    await u.send("/workout")
+    text = u.last_text()
+    assert "Today: Day 1 · Upper A" in text and "Barbell Bench Press" in text
+
+    await u.tap("Start workout")              # 2 taps from /workout to the logger
+    card = u.last_text()
+    assert "Barbell Bench Press" in card and "First time" in card and "Set 1 of 3" in card
+    assert "Log 20 kg × 6" in [b.text for row in u.last_markup().inline_keyboard for b in row][4]
+
+    # Adjust and log: +2.5 kg x 4 taps... use typing for a big jump instead.
+    await u.send("60x10")
+    assert "1. 60 kg × 10" in u.last_text() and "Set 2 of 3" in u.last_text()
+    assert u.last_call("DeleteMessage")       # old card removed, new card at the bottom
+
+    rest_timers.time_scale = 0.0001
+    await u.tap("Log 60 kg × 10")             # 1 tap: same set again
+    assert "2. 60 kg × 10" in u.last_text()
+    await rest_timers.wait(u.user_id)
+    rest_timers.time_scale = 1.0              # later timers stay pending (shared in-memory DB in tests)
+    note = u.last_call("SendMessage")
+    assert "Rest over" in note.text and "set 3" in note.text
+
+    await u.tap("Log 60 kg × 10")             # from the notification: it becomes the card
+    assert "3. 60 kg × 10" in u.last_text() and "All sets done" in u.last_text()
+
+    await u.tap("Undo")
+    assert "3. 60 kg" not in u.last_text() and "Removed" in u.last_call("AnswerCallbackQuery").text
+    await u.tap("+1 rep")
+    await u.tap("Log 60 kg × 11")
+    assert "3. 60 kg × 11" in u.last_text()
+
+    await u.tap("Next")
+    assert "Pull-Up" in u.last_text() or "exercise 2 of 7" in u.last_text()
+    await u.send("8")                         # reps only: uses the draft weight (BW)
+    assert "1. BW × 8" in u.last_text()
+
+    await u.tap("Exercises")
+    assert "✅ Barbell Bench Press" in str(u.last_markup().inline_keyboard)
+    await u.tap("Back")
+
+    await u.tap("Finish")
+    summary = u.last_text()
+    assert "Workout done: Upper A" in summary and "4 sets" in summary
+    assert "Barbell Bench Press: add weight → 62.5 kg" in summary
+    assert "Next workout: <b>Day 2 · Lower A</b>" in summary
+
+    # Old card buttons after finishing are handled.
+    await u.tap("Finish")
+    assert "has ended" in u.last_call("AnswerCallbackQuery").text
+
+    # Next Upper A: last time is shown and the overload suggestion is pre-filled.
+    async with env["session_factory"]() as s:
+        user = await users.get_user(s, u.user_id)
+        plan = await plans.get_plan(s, user)
+        ws = await workouts.start(s, user, plan, 0)
+        hint, previous = await workouts.suggestion_for(s, user, ws, 0)
+        assert [p.reps for p in previous] == [10, 10, 11] and hint.kind == "add_weight"
+        assert ws.draft_weight == 62.5
+    await u.send("/workout")                  # resumes the active workout
+    card = u.last_text()
+    assert "Last time: 60 kg × 10 · 60 kg × 10 · 60 kg × 11" in card and "add weight" in card
+    buttons = [b.text for row in u.last_markup().inline_keyboard for b in row]
+    assert "Log 62.5 kg × 6" in " ".join(buttons)
+    await u.tap("Same as last time")
+    assert "1. 60 kg × 10" in u.last_text()
+
+
+async def test_typed_set_without_workout_and_with_bad_values(env):
+    u = FakeUser(env, 9292)
+    await onboard_intermediate(u)
+    await u.send("60x8")
+    assert "No workout in progress" in u.last_text()
+    await u.send("/workout")
+    await u.tap("Start workout")
+    await u.send("900x8")
+    assert "between 0 and 500" in u.last_text()
+    await u.tap("Finish")
+    assert "Nothing was logged" in u.last_text()

@@ -1,0 +1,296 @@
+"""
+Workout sessions and set logging (no Telegram code).
+
+Flow: start() copies a plan day into a session -> log_set() for each set ->
+finish() returns a summary. The "draft" (weight/reps on the Log button) is
+pre-filled from today's last set, or from the overload suggestion.
+"""
+import logging
+from dataclasses import dataclass, field
+from datetime import timedelta
+
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from database.models import Exercise, SetLog, User, WorkoutPlan, WorkoutSession, utcnow  # noqa: F401
+from services.exercises import UserFilter, load_catalog, pick_substitute
+from services.plan_generator import prescription
+from services.progression import SetResult, Suggestion, suggest
+
+logger = logging.getLogger(__name__)
+
+MAX_WEIGHT_KG = 500.0
+MAX_REPS = 100
+MAX_SECONDS = 600
+STALE_AFTER = timedelta(hours=12)  # an unfinished workout older than this is closed
+
+
+class LogError(ValueError):
+    """Invalid set values. text_key is shown to the user."""
+
+    def __init__(self, text_key: str):
+        super().__init__(text_key)
+        self.text_key = text_key
+
+
+@dataclass
+class ExerciseSummary:
+    exercise: Exercise
+    sets: list[SetLog]
+    next_time: Suggestion | None
+    timed: bool = False
+
+
+@dataclass
+class WorkoutSummary:
+    name_key: str
+    suffix: str
+    minutes: int
+    total_sets: int
+    volume_kg: float
+    exercises: list[ExerciseSummary] = field(default_factory=list)
+
+
+def _aware(dt):
+    """SQLite returns naive datetimes; treat them as UTC."""
+    from datetime import timezone
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
+# ---------- Reading ----------
+
+async def get_active(session: AsyncSession, user: User) -> WorkoutSession | None:
+    """The unfinished workout, if any. Very old unfinished workouts are closed first."""
+    ws = await session.scalar(
+        select(WorkoutSession)
+        .where(WorkoutSession.user_id == user.id, WorkoutSession.finished_at.is_(None))
+        .order_by(WorkoutSession.id.desc())
+    )
+    if ws is not None and utcnow() - _aware(ws.started_at) > STALE_AFTER:
+        await finish(session, user, ws)
+        return None
+    return ws
+
+
+async def get_session(session: AsyncSession, user: User, session_id: int) -> WorkoutSession | None:
+    ws = await session.get(WorkoutSession, session_id)
+    return ws if ws is not None and ws.user_id == user.id else None
+
+
+def sets_for(ws: WorkoutSession, exercise_id: str) -> list[SetLog]:
+    return [s for s in ws.sets if s.exercise_id == exercise_id]
+
+
+def item_done(ws: WorkoutSession, index: int) -> bool:
+    item = ws.items[index]
+    return len(sets_for(ws, item["exercise_id"])) >= item["sets"]
+
+
+def all_done(ws: WorkoutSession) -> bool:
+    return all(item_done(ws, i) for i in range(len(ws.items)))
+
+
+async def history(session: AsyncSession, user: User, exercise_id: str,
+                  exclude_session_id: int | None = None, limit: int = 2) -> list[list[SetResult]]:
+    """Sets from the most recent workouts with this exercise, newest first."""
+    query = (
+        select(SetLog.session_id)
+        .where(SetLog.user_id == user.id, SetLog.exercise_id == exercise_id)
+        .group_by(SetLog.session_id)
+        .order_by(func.max(SetLog.id).desc())
+        .limit(limit)
+    )
+    if exclude_session_id is not None:
+        query = query.where(SetLog.session_id != exclude_session_id)
+    session_ids = list(await session.scalars(query))
+    result = []
+    for sid in session_ids:
+        rows = await session.scalars(
+            select(SetLog).where(SetLog.session_id == sid, SetLog.exercise_id == exercise_id)
+            .order_by(SetLog.set_number)
+        )
+        result.append([SetResult(r.weight_kg, r.reps) for r in rows])
+    return result
+
+
+async def suggestion_for(session: AsyncSession, user: User, ws: WorkoutSession,
+                         index: int) -> tuple[Suggestion, list[SetResult]]:
+    """The overload suggestion for an exercise, plus last workout's sets."""
+    item = ws.items[index]
+    exercise = await session.get(Exercise, item["exercise_id"])
+    past = await history(session, user, item["exercise_id"], exclude_session_id=ws.id)
+    previous = past[0] if past else []
+    hint = suggest(previous, rep_min=item["rep_min"], rep_max=item["rep_max"],
+                   planned_sets=item["sets"], equipment=exercise.equipment,
+                   timed=item["timed"], before_previous=past[1] if len(past) > 1 else None)
+    return hint, previous
+
+
+async def next_day_index(session: AsyncSession, user: User, plan: WorkoutPlan) -> int:
+    """The plan day after the last finished workout (day 1 if none)."""
+    last = await session.scalar(
+        select(WorkoutSession.day_index)
+        .where(WorkoutSession.user_id == user.id, WorkoutSession.finished_at.is_not(None),
+               WorkoutSession.day_index.is_not(None))
+        .order_by(WorkoutSession.finished_at.desc(), WorkoutSession.id.desc())
+    )
+    if last is None or not plan.days:
+        return 0
+    return (last + 1) % len(plan.days)
+
+
+# ---------- Changing ----------
+
+async def start(session: AsyncSession, user: User, plan: WorkoutPlan, day_index: int) -> WorkoutSession:
+    """Start a workout from a plan day (closes any unfinished one first)."""
+    active = await get_active(session, user)
+    if active is not None:
+        await finish(session, user, active)
+
+    day = plan.days[day_index]
+    items = [
+        {"exercise_id": e.exercise_id, "sets": e.sets, "rep_min": e.rep_min,
+         "rep_max": e.rep_max, "timed": e.timed, "rest_seconds": e.rest_seconds}
+        for e in day.exercises
+    ]
+    ws = WorkoutSession(user_id=user.id, day_index=day_index, name_key=day.name_key,
+                        suffix=day.suffix, items=items, sets=[])
+    session.add(ws)
+    await session.commit()
+    logger.info("Workout started")
+    await enter_exercise(session, user, ws, 0)
+    return ws
+
+
+async def add_exercise(session: AsyncSession, user: User, ws: WorkoutSession,
+                       exercise: Exercise) -> int:
+    """Add an exercise to today's workout (or find it). Returns its index."""
+    for index, item in enumerate(ws.items):
+        if item["exercise_id"] == exercise.id:
+            return index
+    p = prescription(exercise, UserFilter.from_profile(user.profile).experience)
+    ws.items = ws.items + [{"exercise_id": exercise.id, "sets": p.sets, "rep_min": p.rep_min,
+                            "rep_max": p.rep_max, "timed": p.timed, "rest_seconds": p.rest_seconds}]
+    await session.commit()
+    return len(ws.items) - 1
+
+
+async def enter_exercise(session: AsyncSession, user: User, ws: WorkoutSession, index: int) -> None:
+    """Make `index` the current exercise and pre-fill the draft."""
+    index %= len(ws.items)
+    ws.current_index = index
+    today = sets_for(ws, ws.items[index]["exercise_id"])
+    if today:
+        ws.draft_weight, ws.draft_reps = today[-1].weight_kg, today[-1].reps
+    else:
+        hint, _ = await suggestion_for(session, user, ws, index)
+        ws.draft_weight, ws.draft_reps = hint.weight_kg, hint.reps
+    await session.commit()
+
+
+async def adjust_draft(session: AsyncSession, ws: WorkoutSession,
+                       weight_delta: float = 0, reps_delta: int = 0) -> None:
+    timed = ws.items[ws.current_index]["timed"]
+    ws.draft_weight = min(max(0.0, round(ws.draft_weight + weight_delta, 2)), MAX_WEIGHT_KG)
+    ws.draft_reps = min(max(1, ws.draft_reps + reps_delta), MAX_SECONDS if timed else MAX_REPS)
+    await session.commit()
+
+
+async def log_set(session: AsyncSession, user: User, ws: WorkoutSession,
+                  weight: float | None = None, reps: int | None = None) -> SetLog:
+    """Log a set for the current exercise (defaults to the draft values)."""
+    item = ws.items[ws.current_index]
+    weight = ws.draft_weight if weight is None else weight
+    reps = ws.draft_reps if reps is None else reps
+    if not 0 <= weight <= MAX_WEIGHT_KG:
+        raise LogError("err_set_weight")
+    if not 1 <= reps <= (MAX_SECONDS if item["timed"] else MAX_REPS):
+        raise LogError("err_set_reps")
+
+    entry = SetLog(user_id=user.id, exercise_id=item["exercise_id"],
+                   set_number=len(sets_for(ws, item["exercise_id"])) + 1,
+                   weight_kg=round(float(weight), 2), reps=int(reps))
+    ws.sets.append(entry)
+    ws.draft_weight, ws.draft_reps = entry.weight_kg, entry.reps
+    await session.commit()
+    return entry
+
+
+async def same_as_last_time(session: AsyncSession, user: User,
+                            ws: WorkoutSession) -> SetResult | None:
+    """Last workout's matching set (same set number, else its last set)."""
+    item = ws.items[ws.current_index]
+    past = await history(session, user, item["exercise_id"], exclude_session_id=ws.id, limit=1)
+    if not past:
+        return None
+    number = len(sets_for(ws, item["exercise_id"]))  # 0-based index of the next set
+    previous = past[0]
+    return previous[number] if number < len(previous) else previous[-1]
+
+
+async def undo_last(session: AsyncSession, ws: WorkoutSession) -> SetLog | None:
+    """Remove the most recently logged set and jump back to its exercise."""
+    if not ws.sets:
+        return None
+    last = ws.sets[-1]
+    ws.sets.remove(last)
+    for index, item in enumerate(ws.items):
+        if item["exercise_id"] == last.exercise_id:
+            ws.current_index = index
+    ws.draft_weight, ws.draft_reps = last.weight_kg, last.reps
+    await session.commit()
+    return last
+
+
+async def swap_current(session: AsyncSession, user: User, ws: WorkoutSession) -> Exercise | None:
+    """Replace the current exercise (e.g. machine taken). Only if no sets logged for it yet."""
+    item = ws.items[ws.current_index]
+    if sets_for(ws, item["exercise_id"]):
+        raise LogError("swap_after_sets")
+    catalog = await load_catalog(session)
+    current = catalog.get(item["exercise_id"]) or await session.get(Exercise, item["exercise_id"])
+    substitute = pick_substitute(current, catalog, UserFilter.from_profile(user.profile),
+                                 exclude_ids={i["exercise_id"] for i in ws.items})
+    if substitute is None:
+        return None
+    items = [dict(i) for i in ws.items]
+    items[ws.current_index]["exercise_id"] = substitute.id
+    ws.items = items  # reassign so SQLAlchemy notices the JSON change
+    await session.commit()
+    await enter_exercise(session, user, ws, ws.current_index)
+    return substitute
+
+
+async def finish(session: AsyncSession, user: User, ws: WorkoutSession) -> WorkoutSummary | None:
+    """Close the workout. Returns a summary, or None if nothing was logged (it's discarded)."""
+    if not ws.sets:
+        await session.delete(ws)
+        await session.commit()
+        logger.info("Empty workout discarded")
+        return None
+
+    ws.finished_at = utcnow()
+    await session.commit()
+
+    summary = WorkoutSummary(
+        name_key=ws.name_key, suffix=ws.suffix,
+        minutes=max(1, round((_aware(ws.finished_at) - _aware(ws.started_at)).total_seconds() / 60)),
+        total_sets=len(ws.sets),
+        volume_kg=round(sum(s.weight_kg * s.reps for s in ws.sets
+                            if not _is_timed(ws, s.exercise_id)), 1),
+    )
+    for item in ws.items:
+        done = sets_for(ws, item["exercise_id"])
+        if not done:
+            continue
+        exercise = await session.get(Exercise, item["exercise_id"])
+        hint = suggest([SetResult(s.weight_kg, s.reps) for s in done], rep_min=item["rep_min"],
+                       rep_max=item["rep_max"], planned_sets=item["sets"],
+                       equipment=exercise.equipment, timed=item["timed"])
+        summary.exercises.append(ExerciseSummary(exercise, done, hint, item["timed"]))
+    logger.info("Workout finished (%s sets)", summary.total_sets)
+    return summary
+
+
+def _is_timed(ws: WorkoutSession, exercise_id: str) -> bool:
+    return any(i["exercise_id"] == exercise_id and i["timed"] for i in ws.items)

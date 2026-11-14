@@ -17,12 +17,13 @@ EN: dict[str, str] = {
         "/start — start or resume setup\n"
         "/profile — your profile and daily calorie/protein targets\n"
         "/plan — your workout plan\n"
+        "/workout — start or continue today's workout\n"
         "/exercises — exercise library\n"
         "/settings — edit profile, disclaimer, delete data\n"
         "/about — about this bot and credits\n"
         "/deleteme — permanently delete all your data\n"
         "/cancel — stop the current setup step\n\n"
-        "Workout logging and progress tracking are coming soon."
+        "Progress charts and reminders are coming soon."
     ),
     "about": (
         "<b>Muscle Gain Bot</b>\n"
@@ -188,7 +189,6 @@ EN: dict[str, str] = {
     "btn_back_to_plan": "⬅️ Plan",
     "no_substitute": "No substitute fits your equipment, level and injuries.",
     "substituted": "Swapped in your plan ✅",
-    "log_set_soon": "Set logging is coming in the next update.",
     "reps_range": "{low}–{high}",
     "seconds_range": "{low}–{high} s",
     "rest_seconds": "{seconds} s",
@@ -242,6 +242,72 @@ EN: dict[str, str] = {
     "level_advanced": "Advanced",
     "move_compound": "Compound",
     "move_isolation": "Isolation",
+
+    # ----- Workout logger -----
+    "workout_overview": "🏋️ <b>Today: Day {n} · {name}</b>",
+    "workout_line": "• {name} — {sets} × {reps}",
+    "workout_line_last": "   <i>last: {last}</i>",
+    "workout_overview_footer": "Tap <b>Start</b> to log your sets. Wrong day? Pick another below.",
+    "btn_start_workout": "▶️ Start workout",
+    "btn_workout": "🏋️ Start workout",
+    "workout_card_header": "🏋️ <b>{day}</b> · exercise {pos} of {total}",
+    "workout_target": "🎯 Target {sets} × {reps} · rest {rest}",
+    "workout_last_time": "📜 Last time: {sets}",
+    "workout_first_time": "📜 First time: pick a weight you could lift for about 2 more reps "
+                          "than the target ({low}–{high}), with good form.",
+    "workout_today": "<b>Today</b>",
+    "workout_set_line": "{n}. {set}",
+    "workout_next_set": "➡️ <b>Set {n} of {total}</b>",
+    "workout_extra_set": "➡️ Extra set {n} (target was {total})",
+    "workout_exercise_done": "✅ All sets done. Tap <b>Next</b>.",
+    "workout_resting": "⏱ Resting: {time} left. I'll message you.",
+    "workout_type_hint": "<i>Tip: you can also type a set, e.g. 62.5x8, or just 8 for reps.</i>",
+    "workout_list": "📋 <b>Exercises</b>: tap one to jump to it.",
+    "hint_add_weight": "💡 You hit {reps} on every set: add weight → <b>{weight}</b> × {low}–{high}.",
+    "hint_add_reps": "💡 Same weight ({weight}), aim for <b>{reps}</b> on your weakest set.",
+    "hint_repeat": "💡 Stay at {weight} and get at least {low} on every set.",
+    "hint_reduce": "💡 Missed the target two workouts in a row: drop to <b>{weight}</b> and build back up.",
+    "hint_add_load": "💡 You hit {high} reps on every set: add a backpack/weight vest or try a harder variation.",
+    "hint_add_time": "💡 Aim for <b>{seconds} s</b> this time.",
+    "btn_log": "✅ Log {set}",
+    "btn_same_as_last": "🔁 Same as last time ({set})",
+    "btn_undo": "↩️ Undo",
+    "btn_swap": "🔄 Swap",
+    "btn_next_exercise": "⏭ Next",
+    "btn_exercise_list": "📋 Exercises",
+    "btn_finish": "🏁 Finish",
+    "btn_back_to_card": "⬅️ Back",
+    "set_logged": "Logged ✅",
+    "set_undone": "Removed: {set}",
+    "nothing_to_undo": "No sets to undo yet.",
+    "swap_after_sets": "You've already logged sets for this exercise. Swap it before the first set.",
+    "swapped": "Swapped for {name}",
+    "rest_over": "⏰ <b>Rest over!</b> {name}: set {n}, {set}",
+    "rest_over_next": "⏰ <b>Rest over!</b> Next exercise: {name}",
+    "workout_done": "🏁 <b>Workout done: {day}</b>\n⏱ {minutes} min · {sets} sets · {volume} kg lifted",
+    "workout_done_line": "• <b>{name}</b>: {sets}",
+    "workout_next_time": "💡 <b>Next time</b>",
+    "next_add_weight": "• {name}: add weight → {weight}",
+    "next_add_reps": "• {name}: same weight, aim for {reps}",
+    "next_repeat": "• {name}: repeat {weight}, get {low}+ on every set",
+    "next_reduce": "• {name}: drop to {weight} and build back up",
+    "next_add_load": "• {name}: add load or try a harder variation",
+    "next_add_time": "• {name}: aim for {seconds} s",
+    "workout_next_day": "Next workout: <b>Day {n} · {name}</b>. Rest well and hit your protein 💪",
+    "workout_discarded": "Workout closed. Nothing was logged, so nothing was saved.",
+    "no_active_workout": "No workout in progress. Send /workout to start one.",
+    "workout_ended": "This workout has ended. Send /workout to start a new one.",
+    "start_workout_first": "Start a workout first: /workout",
+    "err_set_weight": "Weight must be between 0 and 500 kg.",
+    "err_set_reps": "Reps must be between 1 and 100 (seconds: up to 600).",
+    "unit_reps": "{n} reps",
+    "unit_seconds": "{n} s",
+    "btn_weight_minus": "−2.5 kg",
+    "btn_weight_plus": "+2.5 kg",
+    "btn_reps_minus": "−1 rep",
+    "btn_reps_plus": "+1 rep",
+    "btn_secs_minus": "−5 s",
+    "btn_secs_plus": "+5 s",
 }
 
 # Phase 6: add more language dicts here (or load them from files).

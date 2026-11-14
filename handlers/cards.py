@@ -10,7 +10,7 @@ import html
 import logging
 from dataclasses import dataclass
 
-from aiogram import Router
+from aiogram import Bot, Router
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import (
     CallbackQuery,
@@ -207,15 +207,40 @@ async def plan_card(session: AsyncSession, entry: PlanExercise) -> Card:
 # ---------- Button handlers ----------
 
 @router.callback_query(CardCB.filter())
-async def on_card_button(callback: CallbackQuery, callback_data: CardCB,
+async def on_card_button(callback: CallbackQuery, callback_data: CardCB, bot: Bot,
                          session: AsyncSession) -> None:
     if callback_data.action == "log":
-        await callback.answer(t("log_set_soon"), show_alert=False)
+        await _log_button(callback, callback_data, bot, session)
         return
     if callback_data.ctx == "day":
         await _day_button(callback, callback_data, session)
     else:
         await _library_button(callback, callback_data, session)
+
+
+async def _log_button(callback: CallbackQuery, data: CardCB, bot: Bot,
+                      session: AsyncSession) -> None:
+    """'Log set' on an exercise card: open the workout logger at this exercise."""
+    from handlers.workout import open_logger_for  # here to avoid a circular import
+
+    user = await users.get_user(session, callback.from_user.id)
+    if user is None or user.profile is None:
+        await callback.answer(t("need_profile"), show_alert=True)
+        return
+    exercise = await exercise_service.get_exercise(session, data.ex)
+    day_index = None
+    if data.ctx == "day" and data.ref.isdigit():
+        entry = await plans.get_plan_exercise(session, user, int(data.ref))
+        if entry is None:
+            await callback.answer(t("plan_changed"), show_alert=True)
+            return
+        day_index = entry.day.day_index
+    if exercise is None:
+        await callback.answer(t("stale_button"))
+        return
+    await callback.answer()
+    if not await open_logger_for(callback.message, bot, session, user, exercise, day_index):
+        await callback.message.answer(t("start_workout_first"))
 
 
 async def _library_button(callback: CallbackQuery, data: CardCB, session: AsyncSession) -> None:

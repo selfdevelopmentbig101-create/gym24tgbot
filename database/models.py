@@ -189,3 +189,57 @@ class MediaCache(Base):
 
     key: Mapped[str] = mapped_column(String(200), primary_key=True)
     file_id: Mapped[str] = mapped_column(String(255))
+
+
+class WorkoutSession(Base):
+    """
+    One workout. The exercise list is copied from the plan when the workout
+    starts, so regenerating the plan mid-workout doesn't break it.
+    The logger's draft (current exercise, weight and reps on the Log button)
+    is stored here too, so it survives bot restarts and other menus.
+    """
+
+    __tablename__ = "workout_sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    day_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    name_key: Mapped[str] = mapped_column(String(20), default="")
+    suffix: Mapped[str] = mapped_column(String(4), default="")
+    # [{"exercise_id", "sets", "rep_min", "rep_max", "timed", "rest_seconds"}, ...]
+    items: Mapped[list[dict]] = mapped_column(JSON, default=list)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    current_index: Mapped[int] = mapped_column(Integer, default=0)
+    draft_weight: Mapped[float] = mapped_column(Float, default=0)
+    draft_reps: Mapped[int] = mapped_column(Integer, default=0)
+    card_message_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+
+    sets: Mapped[list["SetLog"]] = relationship(
+        back_populates="session",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="SetLog.id",
+        lazy="selectin",
+    )
+
+
+class SetLog(Base):
+    """One logged set. For timed exercises (plank) `reps` holds seconds."""
+
+    __tablename__ = "set_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    session_id: Mapped[int] = mapped_column(
+        ForeignKey("workout_sessions.id", ondelete="CASCADE"), index=True
+    )
+    # Duplicated from the session so history queries stay simple and fast.
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    exercise_id: Mapped[str] = mapped_column(ForeignKey("exercises.id"), index=True)
+    set_number: Mapped[int] = mapped_column(Integer)  # 1-based, per exercise per workout
+    weight_kg: Mapped[float] = mapped_column(Float, default=0)  # 0 = bodyweight only
+    reps: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    session: Mapped[WorkoutSession] = relationship(back_populates="sets")
