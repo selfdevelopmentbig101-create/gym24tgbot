@@ -16,6 +16,7 @@ from keyboards.profile import (
     settings_keyboard,
 )
 from services import users
+from services.scheduler import sync_user
 from utils.texts import t
 
 logger = logging.getLogger(__name__)
@@ -97,6 +98,9 @@ async def on_delete(callback: CallbackQuery) -> None:
 @router.callback_query(MenuCB.filter(F.action == "delete_yes"))
 async def on_delete_yes(callback: CallbackQuery, state: FSMContext, session: AsyncSession) -> None:
     await callback.answer()
+    user = await users.get_user(session, callback.from_user.id)
+    if user is not None:
+        sync_user(user.id, None)  # stop their reminders
     deleted = await users.delete_user_data(session, callback.from_user.id)
     await state.clear()  # forget any half-finished form answers too
     await send_or_edit(callback, t("delete_done" if deleted else "delete_nothing"))

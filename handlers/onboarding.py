@@ -158,7 +158,8 @@ async def advance(event: Message | CallbackQuery, state: FSMContext,
     await state.clear()
     logger.info("Onboarding completed")
     plan = await plans.generate_for_user(session, user)
-    await show_profile(event, profile, t("onboarding_done"), t("plan_ready") if plan else "")
+    footer = (t("plan_ready") + "\n" if plan else "") + t("reminders_hint")
+    await show_profile(event, profile, t("onboarding_done"), footer)
 
 
 # ---------- Button answers ----------

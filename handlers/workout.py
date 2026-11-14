@@ -27,9 +27,10 @@ from keyboards.workout import (
     overview_keyboard,
     rest_over_keyboard,
 )
-from services import plans, users, workouts
+from services import plans, reminders, users, workouts
 from services.progression import Suggestion
 from services.rest_timer import rest_timers
+from services.scheduler import sync_user
 from utils.texts import t
 
 logger = logging.getLogger(__name__)
@@ -120,6 +121,7 @@ async def card_view(session: AsyncSession, user: User, ws: WorkoutSession):
         lines += ["", t("workout_today")]
         lines += [t("workout_set_line", n=s.set_number, set=fmt_set(s.weight_kg, s.reps,
                                                                        exercise.equipment, timed))
+                  + (" 🏆" if s.pr else "")
                   for s in today]
     lines.append("")
     done = len(today)
@@ -165,6 +167,9 @@ def summary_text(summary: workouts.WorkoutSummary, plan: WorkoutPlan | None, day
             hints.append(t(f"next_{ex.next_time.kind}", name=html.escape(ex.exercise.name),
                            **hint_params(ex.next_time, ex.exercise, timed)))
     parts.append("\n".join(lines))
+    prs = [ex.exercise.name for ex in summary.exercises if any(s.pr for s in ex.sets)]
+    if prs:
+        parts.append(t("workout_prs", names=html.escape(", ".join(prs))))
     if hints:
         parts.append(t("workout_next_time") + "\n" + "\n".join(hints))
     if plan is not None and plan.days and day_index is not None:
@@ -345,6 +350,9 @@ async def on_card_action(callback: CallbackQuery, callback_data: WorkoutCB, bot:
             entry = await workouts.log_set(session, user, ws, weight, reps)
             start_rest_timer(bot, session_factory, user, ws)
             popup = t("set_logged") + " " + fmt_set(entry.weight_kg, entry.reps, exercise.equipment, timed)
+            if entry.pr:
+                popup = t("new_pr", name=exercise.name, value=f"{entry.estimate:.1f}",
+                          previous=f"{entry.previous_best:.1f}")
         elif action == "undo":
             removed = await workouts.undo_last(session, ws)
             if removed is None:
@@ -394,6 +402,8 @@ async def _finish(callback: CallbackQuery, session: AsyncSession, user: User,
     if summary is None:
         await send_or_edit(callback, t("workout_discarded"))
         return
+    # Missed-workout streak resets and any "remind me tomorrow" is cancelled.
+    sync_user(user.id, await reminders.workout_finished(session, user))
     plan = await plans.get_plan(session, user)
     await send_or_edit(callback, summary_text(summary, plan, day_index))
 

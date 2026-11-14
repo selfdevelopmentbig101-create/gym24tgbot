@@ -39,7 +39,7 @@ class FakeSession(BaseSession):
         for attr in ("text", "caption"):
             if isinstance(getattr(method, attr, None), str) and name != "AnswerCallbackQuery":
                 assert_valid_telegram_html(getattr(method, attr))
-        if name == "EditMessageMedia":
+        if name == "EditMessageMedia" and method.media.caption:
             assert_valid_telegram_html(method.media.caption)
 
         if method.__returning__ is Message or "Message" in str(method.__returning__):
@@ -436,3 +436,162 @@ async def test_typed_set_without_workout_and_with_bad_values(env):
     assert "between 0 and 500" in u.last_text()
     await u.tap("Finish")
     assert "Nothing was logged" in u.last_text()
+
+
+# ---------- Phase 4: progress and reminders ----------
+
+async def test_progress_weight_measurements_and_charts(env):
+    u = FakeUser(env, 10101)
+    await onboard_intermediate(u)              # 80 kg in onboarding
+
+    await u.send("/progress")
+    assert "No weigh-ins yet" in u.last_text()
+    await u.tap("Log weight")
+    assert "Log body weight" in u.last_text()
+    await u.tap("+0.5")
+    await u.tap("Log 80.5 kg")                 # 3 taps from /progress
+    text = u.last_text()
+    assert "Logged <b>80.5 kg</b>" in text and "daily targets were updated" in text
+
+    await u.send("/weight 80,9")               # typed with a comma
+    assert "80.9 kg" in u.last_text()
+    await u.send("/weight")
+    await u.send("81.2")                       # typing while the weight logger is open
+    assert "81.2 kg" in u.last_text()
+    async with env["session_factory"]() as s:
+        user = await users.get_user(s, u.user_id)
+        assert user.profile.weight_kg == 81.2
+
+    await u.send("/measure")
+    await u.tap("Waist")
+    assert "type the value" in u.last_text()
+    await u.send("84")
+    assert "Waist: <b>84 cm</b>" in u.last_text()
+    await u.send("/measure")
+    await u.tap("Waist")
+    await u.tap("-1")
+    await u.tap("Log 83 cm")
+    assert "83 cm" in u.last_text()
+
+    await u.send("/progress")
+    assert "81.2 kg" in u.last_text() and "Waist 83 cm" in u.last_text()
+    await u.tap("Weight chart")                # 3 weigh-ins today -> chart
+    photo = u.last_call("SendPhoto")
+    assert photo.photo.filename == "chart.png"
+    await u.tap("Week")                        # switch range: edits the image in place
+    assert type(u.session.calls[-1]).__name__ == "EditMessageMedia"
+    await u.tap("Progress")
+    assert "Your progress" in u.last_text()
+    await u.tap("Strength chart")
+    assert "No weighted sets" in u.last_text()
+
+
+async def test_prs_in_workout_and_progress(env):
+    u = FakeUser(env, 10202)
+    await onboard_intermediate(u)
+    await u.send("/workout")
+    await u.tap("Start workout")
+    await u.send("60x8")
+    await u.send("62.5x8")                     # beats the previous estimated 1RM
+    assert "2. 62.5 kg × 8 🏆" in u.last_text()
+    await u.tap("Finish")
+    assert "New PRs" in u.last_text() and "Barbell Bench Press" in u.last_text()
+    await u.send("/progress")
+    await u.tap("All PRs")
+    assert "Barbell Bench Press: <b>79.2 kg</b> from 62.5 kg × 8" in u.last_text()
+
+    # A second Upper A workout gives the bench strength chart two points.
+    await u.send("/workout")
+    await u.tap("1 · Upper A")
+    await u.tap("Start workout")
+    assert "Barbell Bench Press" in u.last_text()
+    await u.send("65x6")
+    await u.tap("Finish")
+    await u.send("/progress")
+    await u.tap("Strength chart")
+    photos_before = sum(type(c).__name__ == "SendPhoto" for c in u.session.calls)
+    await u.tap("Barbell Bench Press")
+    assert sum(type(c).__name__ == "SendPhoto" for c in u.session.calls) == photos_before + 1
+
+
+async def test_reminders_setup_and_nudges(env):
+    from handlers.reminders import make_notifier
+    from services.scheduler import ReminderScheduler, set_scheduler
+
+    u = FakeUser(env, 10303)
+    await onboard_intermediate(u)               # 4 training days
+    notify = make_notifier(env["bot"], env["session_factory"])
+    scheduler = ReminderScheduler(notify)
+    scheduler.start()
+    set_scheduler(scheduler)
+    try:
+        await u.send("/reminders")
+        assert "Reminders</b> are off" in u.last_text()
+        await u.tap(next(b.text for row in u.last_markup().inline_keyboard for b in row
+                         if b.callback_data.endswith(":120")))   # the UTC+2 button
+        text = u.last_text()
+        assert "Mon, Tue, Thu, Fri at 18:00" in text and "UTC+02:00" in text
+        async with env["session_factory"]() as s:
+            user = await users.get_user(s, u.user_id)
+        assert set(scheduler.jobs_for(user.id)) == {"workout", "nudge", "weighin"}
+
+        await u.tap("🕕 18:00")                                     # workout time picker
+        await u.tap("07:00")
+        assert "at 07:00" in u.last_text()
+        await u.tap("Days")
+        await u.tap("Sat")
+        await u.tap("Done")
+        assert "Mon, Tue, Thu, Fri, Sat at 07:00" in u.last_text()
+        await u.tap("Weigh-in: weekly")                           # -> off
+        assert "Weigh-in: <b>off</b>" in u.last_text()
+        assert "weighin" not in scheduler.jobs_for(user.id)
+
+        # Typed IANA time zone.
+        await u.tap("Time zone")
+        await u.send("Mars/Base")
+        assert "don't know that time zone" in u.last_text()
+        await u.send("Europe/Berlin")
+        assert "Europe/Berlin" in u.last_text()
+
+        # Workout reminder: sent when not trained yet, with a start button.
+        await notify("workout", user.id)
+        assert "Workout day!" in u.last_text() and "Day 1" in u.last_text()
+
+        # Missed-workout nudge x3 -> offers a lighter schedule.
+        for _ in range(3):
+            await notify("nudge", user.id)
+        assert "missed 3 planned workouts" in u.last_text()
+        await u.tap("Tomorrow at 07:00")
+        assert "I'll remind you" in u.last_text()
+        assert "resched" in scheduler.jobs_for(user.id)
+
+        await notify("nudge", user.id)
+        await u.tap("Switch to 3 days/week")
+        assert "Switched to 3 days" in u.last_text()
+        async with env["session_factory"]() as s:
+            user = await users.get_user(s, u.user_id)
+            assert user.profile.training_days == 3
+            assert len((await plans.get_plan(s, user)).days) == 3
+
+        # Weigh-in reminder offers the 1-tap weight logger; skipped once weighed in.
+        await notify("weighin", user.id)
+        assert "Weigh-in time" in u.last_text()
+        await u.tap("Log 80 kg")
+        calls_before = len(u.session.calls)
+        await notify("weighin", user.id)
+        assert len(u.session.calls) == calls_before
+
+        # Training today silences workout reminders and nudges.
+        await u.send("/workout")
+        await u.tap("Start workout")
+        calls_before = len(u.session.calls)
+        await notify("workout", user.id)
+        await notify("nudge", user.id)
+        assert len(u.session.calls) == calls_before
+
+        await u.send("/deleteme")
+        await u.tap("Yes, delete")
+        assert scheduler.jobs_for(user.id) == {}
+    finally:
+        set_scheduler(None)
+        scheduler.shutdown()

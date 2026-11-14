@@ -18,12 +18,16 @@ EN: dict[str, str] = {
         "/profile — your profile and daily calorie/protein targets\n"
         "/plan — your workout plan\n"
         "/workout — start or continue today's workout\n"
+        "/progress — weight, PRs and charts\n"
+        "/weight — log body weight (e.g. /weight 75.4)\n"
+        "/measure — log a body measurement\n"
+        "/reminders — workout and weigh-in reminders\n"
         "/exercises — exercise library\n"
         "/settings — edit profile, disclaimer, delete data\n"
         "/about — about this bot and credits\n"
         "/deleteme — permanently delete all your data\n"
         "/cancel — stop the current setup step\n\n"
-        "Progress charts and reminders are coming soon."
+        "Nutrition logging is coming soon."
     ),
     "about": (
         "<b>Muscle Gain Bot</b>\n"
@@ -308,6 +312,115 @@ EN: dict[str, str] = {
     "btn_reps_plus": "+1 rep",
     "btn_secs_minus": "−5 s",
     "btn_secs_plus": "+5 s",
+    "new_pr": "🏆 New PR! {name}: estimated 1RM {value} kg (was {previous} kg)",
+    "workout_prs": "🏆 <b>New PRs:</b> {names}",
+
+    # ----- Progress -----
+    "progress_header": "📈 <b>Your progress</b>",
+    "progress_weight": "⚖️ Body weight: <b>{weight} kg</b>{avg}",
+    "progress_weight_avg": " (7-day average {avg} kg)",
+    "progress_no_weight": "⚖️ No weigh-ins yet. Tap <b>Log weight</b>.",
+    "progress_trend": "📊 Trend: <b>{trend} kg/week</b>. {verdict}",
+    "progress_trend_wait": "📊 Weekly trend appears after two weeks of weigh-ins.",
+    "trend_on_track": "On track ✅",
+    "trend_slow": "Slower than your goal ({low}–{high} kg/week). If it stays like this for "
+                  "2–3 weeks, add about 150 kcal a day.",
+    "trend_fast": "Faster than your goal ({low}–{high} kg/week), so likely extra fat. "
+                  "If it stays like this for 2–3 weeks, eat about 150 kcal a day less.",
+    "trend_recomp_off": "Your weight is changing more than expected for recomposition. "
+                        "Check you're near your calorie target.",
+    "progress_workouts": "🏋️ Workouts: <b>{week}</b> in the last 7 days · <b>{month}</b> in the last 30",
+    "progress_top_prs": "🏆 Best lifts (estimated 1RM):",
+    "progress_pr_line": "• {name}: <b>{e1rm} kg</b> ({weight} kg × {reps})",
+    "progress_measurements": "📏 Latest: {values}",
+    "btn_log_weight": "⚖️ Log weight",
+    "btn_log_measurement": "📏 Log measurement",
+    "btn_chart_weight": "📈 Weight chart",
+    "btn_chart_strength": "💪 Strength chart",
+    "btn_chart_volume": "📊 Volume chart",
+    "btn_chart_measure": "📏 Measurements chart",
+    "btn_prs": "🏆 All PRs",
+    "btn_week": "Week",
+    "btn_month": "Month",
+    "btn_back_to_progress": "⬅️ Progress",
+    "weight_prompt": "⚖️ <b>Log body weight</b>\nAdjust and tap <b>Log</b>, or just type it (e.g. 75.4).\n"
+                     "<i>Best: in the morning, after the toilet, before eating.</i>",
+    "btn_save_weight": "✅ Log {value} kg",
+    "weight_logged": "✅ Logged <b>{weight} kg</b>.",
+    "targets_updated": "🍽 Your daily targets were updated: <b>{calories} kcal</b>, <b>{protein} g</b> protein.",
+    "measure_pick": "📏 <b>Which measurement?</b>\n<i>Measure relaxed, same time of day, tape snug but not tight.</i>",
+    "measure_prompt": "📏 <b>{kind}</b>: adjust and tap <b>Log</b>, or type the value in cm.",
+    "measure_prompt_first": "📏 <b>{kind}</b>: type the value in cm (e.g. 82.5).",
+    "btn_save_measure": "✅ Log {value} cm",
+    "measure_logged": "✅ {kind}: <b>{value} cm</b> logged.",
+    "err_measurement": "Please enter a value between 15 and 200 cm.",
+    "measure_waist": "Waist",
+    "measure_chest": "Chest",
+    "measure_arm": "Arm",
+    "measure_thigh": "Thigh",
+    "measure_hips": "Hips",
+    "strength_pick": "💪 <b>Strength chart</b>: pick an exercise:",
+    "strength_none": "No weighted sets logged yet. Log a workout first: /workout",
+    "chart_no_data": "Not enough data for this chart yet. Keep logging!",
+    "chart_weight_title": "Body weight (last {days} days)",
+    "chart_strength_title": "{name}: estimated 1RM (last {days} days)",
+    "chart_volume_title": "Training volume per day (last {days} days)",
+    "chart_measure_title": "Measurements (last {days} days)",
+    "prs_header": "🏆 <b>Personal records</b> (estimated 1RM)",
+    "prs_line": "• {name}: <b>{e1rm} kg</b> from {weight} kg × {reps} · heaviest {heaviest} kg",
+    "prs_none": "No PRs yet. Log a few workouts and they'll appear here.",
+
+    # ----- Reminders -----
+    "reminders_off": "⏰ <b>Reminders</b> are off.\nTo turn them on, tap the button that shows "
+                     "<b>your current time</b> (this sets your time zone):\n"
+                     "<i>Or type a time zone name like Europe/Berlin.</i>",
+    "reminders_tz_pick": "🌍 Tap the button that shows <b>your current time</b>:\n"
+                         "<i>Or type a time zone name like Europe/Berlin (adjusts for daylight saving).</i>",
+    "reminders_view": (
+        "⏰ <b>Reminders</b>\n"
+        "💪 Workouts: <b>{workout}</b>\n"
+        "⚖️ Weigh-in: <b>{weighin}</b>\n"
+        "🔔 Missed-workout nudge: <b>{nudge}</b>\n"
+        "🌍 Time zone: <b>{tz}</b> (your time now {now})"
+    ),
+    "reminders_workout_on": "{days} at {time}",
+    "reminders_off_short": "off",
+    "reminders_weighin_daily": "every day at {time}",
+    "reminders_weighin_weekly": "{day} at {time}",
+    "reminders_nudge_on": "on, at {time} if you haven't trained",
+    "reminders_tz_fixed_note": "<i>Fixed offset: re-pick it after daylight saving changes.</i>",
+    "btn_rem_workout": "💪 Workouts: {state}",
+    "btn_rem_days": "📅 Days",
+    "btn_rem_time": "🕕 {time}",
+    "btn_rem_weighin": "⚖️ Weigh-in: {state}",
+    "btn_rem_weighin_day": "📅 {day}",
+    "btn_rem_nudge": "🔔 Nudge: {state}",
+    "btn_rem_tz": "🌍 Time zone",
+    "btn_rem_all_off": "🔕 Turn all off",
+    "state_on": "on",
+    "state_off": "off",
+    "weighin_off": "off",
+    "weighin_daily": "daily",
+    "weighin_weekly": "weekly",
+    "rem_pick_time": "🕕 Pick a time:",
+    "rem_pick_days": "📅 Tap your training days, then <b>Done</b>:",
+    "rem_tz_invalid": "I don't know that time zone. Tap a button or try a name like Europe/London.",
+    "rem_all_off_done": "🔕 All reminders are off. Turn them on again any time with /reminders.",
+    "weekday_0": "Mon", "weekday_1": "Tue", "weekday_2": "Wed", "weekday_3": "Thu",
+    "weekday_4": "Fri", "weekday_5": "Sat", "weekday_6": "Sun",
+    "remind_workout": "💪 <b>Workout day!</b> Today: Day {n} · {name}.\nReady when you are.",
+    "remind_weighin": "⚖️ <b>Weigh-in time</b>, ideally now, before eating.",
+    "remind_nudge": "🤔 No workout today yet. Life happens! Want to move it?",
+    "remind_nudge_streak": "You've missed {n} planned workouts in a row. A lighter schedule you can "
+                           "stick to beats a perfect one you can't.",
+    "btn_resched_tomorrow": "⏰ Tomorrow at {time}",
+    "btn_resched_2days": "📅 In 2 days",
+    "btn_resched_skip": "Skip this one",
+    "btn_fewer_days": "📉 Switch to {n} days/week",
+    "resched_done": "👍 I'll remind you {day} at {time}.",
+    "resched_skipped": "👍 No problem. Rest up and get the next one.",
+    "fewer_days_done": "✅ Switched to {n} days a week. Your plan and reminders were updated: /plan",
+    "reminders_hint": "⏰ Want reminders for workouts and weigh-ins? /reminders",
 }
 
 # Phase 6: add more language dicts here (or load them from files).

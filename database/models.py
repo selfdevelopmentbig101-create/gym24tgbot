@@ -240,6 +240,51 @@ class SetLog(Base):
     set_number: Mapped[int] = mapped_column(Integer)  # 1-based, per exercise per workout
     weight_kg: Mapped[float] = mapped_column(Float, default=0)  # 0 = bodyweight only
     reps: Mapped[int] = mapped_column(Integer)
+    # True if this set beat the previous best estimated 1RM for the exercise.
+    pr: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     session: Mapped[WorkoutSession] = relationship(back_populates="sets")
+
+
+class BodyWeightLog(Base):
+    __tablename__ = "body_weight_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    weight_kg: Mapped[float] = mapped_column(Float)
+    logged_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+
+
+class MeasurementLog(Base):
+    __tablename__ = "measurement_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(20))  # waist, chest, arm, thigh, hips
+    value_cm: Mapped[float] = mapped_column(Float)
+    logged_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+
+
+class ReminderSettings(Base):
+    """Per-user reminder settings. Times are "HH:MM" in the user's time zone."""
+
+    __tablename__ = "reminder_settings"
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    # "Europe/Berlin" or a fixed offset like "UTC+05:30".
+    timezone: Mapped[str] = mapped_column(String(40), default="UTC")
+    workout_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    workout_days: Mapped[list[int]] = mapped_column(JSON, default=list)  # 0 = Monday
+    workout_time: Mapped[str] = mapped_column(String(5), default="18:00")
+    weighin_mode: Mapped[str] = mapped_column(String(10), default="weekly")  # off/daily/weekly
+    weighin_day: Mapped[int] = mapped_column(Integer, default=0)
+    weighin_time: Mapped[str] = mapped_column(String(5), default="08:00")
+    nudge_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    nudge_time: Mapped[str] = mapped_column(String(5), default="21:00")
+    # Scheduled workout days missed in a row (reset when a workout is finished).
+    missed_streak: Mapped[int] = mapped_column(Integer, default=0)
+    # One-off "remind me tomorrow" from the missed-workout nudge (UTC).
+    rescheduled_for: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

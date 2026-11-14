@@ -3,9 +3,12 @@ SQLAlchemy[asyncio]>=2.0,<3
 aiosqlite>=0.20
 python-dotenv>=1.0
 Pillow>=10.0          # exercise animations (start/peak images -> looping GIF)
+APScheduler>=3.10,<4  # reminders (3.x is the stable line)
+matplotlib>=3.8       # progress charts
+tzdata                # time zone data (needed on Windows)
 
 # Testing
 pytest>=8
 pytest-asyncio>=0.24
 
-# Added in later phases: APScheduler (reminders), matplotlib (charts), asyncpg (PostgreSQL)
+# Later: asyncpg (PostgreSQL)

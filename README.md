@@ -3,7 +3,7 @@
 A Telegram bot that helps people gain muscle: workout plans, logging,
 progress tracking, calorie/protein targets and reminders.
 
-**Status: Phases 1–3 are done: onboarding, exercise library and plan generator, workout logger.**
+**Status: Phases 1–4 are done: onboarding, exercise library and plan generator, workout logger, progress and reminders.**
 
 ## Project structure
 
@@ -15,7 +15,8 @@ database/
   base.py              Engine, sessions, SQLite foreign-key fix, table creation
   enums.py             Fixed choices (goal, sex, equipment, ...)
   models.py            Tables: users, profiles, exercises, workout_plans, plan_days,
-                       plan_exercises, media_cache, workout_sessions, set_logs
+                       plan_exercises, media_cache, workout_sessions, set_logs,
+                       body_weight_logs, measurement_logs, reminder_settings
 services/              Business logic, no Telegram code (reusable by a Mini App or native app)
   nutrition.py         TDEE (Mifflin-St Jeor), surplus, protein, safety limits
   validation.py        Input parsing/validation (age, height, weight...)
@@ -28,6 +29,11 @@ services/              Business logic, no Telegram code (reusable by a Mini App 
   workouts.py          Workout sessions: start, log/undo sets, swap, history, summary
   progression.py       Progressive overload suggestions (pure logic)
   rest_timer.py        Per-user rest timers (asyncio)
+  records.py           PRs and estimated 1RM (Epley)
+  body.py              Body weight (with weekly trend) and measurements
+  charts.py            matplotlib charts -> PNG
+  reminders.py         Reminder settings, time zones, "trained today?" checks
+  scheduler.py         APScheduler jobs built from reminder settings
 handlers/              Telegram handlers
   common.py            /start, /help, /about, /cancel, disclaimer
   onboarding.py        10-step profile form (also used to edit one field)
@@ -36,6 +42,8 @@ handlers/              Telegram handlers
   library.py           /exercises: browse by muscle group
   cards.py             Exercise cards: image/animation, details, Next/Substitute/Log set
   workout.py           /workout: logger card, quick buttons, typed sets, rest timer, summary
+  progress.py          /progress, /weight, /measure: summary, PRs, charts
+  reminders.py         /reminders settings and the reminder/nudge messages
 keyboards/             Inline keyboards and callback data
 utils/
   texts.py             All user-facing texts (ready for multiple languages)
@@ -111,7 +119,8 @@ They cover the calculator, input validation, the JSON import and its error
 messages, image fallback and animation building, the plan generator for every
 combination of equipment, experience, injuries and training days, and full
 simulated chats (onboarding, editing, plans, cards, substitutes, the library,
-media caching, workout logging with rest timers, `/deleteme`), plus the overload rules.
+media caching, workout logging with rest timers, progress, charts, reminders and
+missed-workout nudges, `/deleteme`), plus the overload, PR, trend and scheduling rules.
 
 Manual test in Telegram:
 
@@ -131,7 +140,17 @@ Manual test in Telegram:
 6. Next time you do that day, the card shows last time's sets, a
    **🔁 Same as last time** button, and the Log button is pre-filled with the
    suggested weight (e.g. +2.5 kg after hitting the top of the rep range).
-7. `/deleteme` removes your profile, plan and workout history.
+7. `/weight` -> adjust with ±0.1/±0.5 and tap **Log** (or `/weight 75.4`).
+   Your calorie targets follow your latest weight.
+8. `/measure` -> pick a body part -> type the value (later: ±buttons from the last value).
+9. `/progress` -> weight, weekly trend vs your goal, workouts, best lifts.
+   Charts: weight, strength (estimated 1RM per exercise), volume and
+   measurements, each with **Week / Month** buttons. **All PRs** lists records.
+10. `/reminders` -> tap the button showing your current time (sets the time
+    zone; or type e.g. `Europe/Berlin`). Defaults: workout reminders on your
+    training days at 18:00, weekly weigh-in Monday 08:00, missed-workout nudge
+    at 21:00. Everything is adjustable with buttons.
+11. `/deleteme` removes your profile, plan, workouts, weigh-ins, measurements and reminders.
 
 ## Logging and progression
 
@@ -143,6 +162,24 @@ Manual test in Telegram:
   range two workouts in a row suggests dropping ~10%. Bodyweight exercises
   suggest adding load or a harder variation; timed ones add 5 s (max 120 s).
 - Rest timers live in memory: a restart during a rest period loses that one notification.
+
+## Progress and reminders
+
+- **PRs:** a set is a PR when its estimated 1RM (Epley, sets of 1–12 reps)
+  beats your previous best for that exercise. Your first-ever set of an
+  exercise isn't counted, so new users don't get a PR on everything.
+- **Weight trend:** average of the last 7 days minus the 7 days before,
+  compared with your goal's healthy weekly gain. If you're off target, it
+  suggests about ±150 kcal a day, and only after 2–3 weeks.
+- **Reminders** are rebuilt from the database on every start, so a restart
+  never loses them. They're skipped if you've already trained or weighed in
+  that day.
+- **Missed-workout nudge:** on a training day with no workout by the nudge
+  time, it offers "tomorrow", "in 2 days" or "skip". After 3 misses in a row it
+  also offers a lighter schedule (one fewer day per week), which updates your
+  plan and reminders.
+- **Time zones:** the 1-tap buttons set a fixed UTC offset, so re-pick it after
+  daylight saving changes. Typing a name like `Europe/Berlin` adjusts automatically.
 
 ## How plans are built
 

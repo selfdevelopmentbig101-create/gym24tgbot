@@ -13,6 +13,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.models import Exercise, SetLog, User, WorkoutPlan, WorkoutSession, utcnow  # noqa: F401
+from services import records
 from services.exercises import UserFilter, load_catalog, pick_substitute
 from services.plan_generator import prescription
 from services.progression import SetResult, Suggestion, suggest
@@ -210,6 +211,13 @@ async def log_set(session: AsyncSession, user: User, ws: WorkoutSession,
     entry = SetLog(user_id=user.id, exercise_id=item["exercise_id"],
                    set_number=len(sets_for(ws, item["exercise_id"])) + 1,
                    weight_kg=round(float(weight), 2), reps=int(reps))
+    # PR = beats your previous best estimated 1RM. The very first time isn't a PR
+    # (otherwise every exercise would "PR" in the first workout).
+    previous_best = await records.best_e1rm(session, user, item["exercise_id"])
+    estimate = None if item["timed"] else records.e1rm(entry.weight_kg, entry.reps)
+    entry.pr = bool(previous_best and estimate and estimate > previous_best + 0.01)
+    entry.previous_best = previous_best  # not stored; used for the "new PR" message
+    entry.estimate = estimate
     ws.sets.append(entry)
     ws.draft_weight, ws.draft_reps = entry.weight_kg, entry.reps
     await session.commit()
