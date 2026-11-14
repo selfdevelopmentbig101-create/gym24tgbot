@@ -68,8 +68,9 @@ def reminders_text(settings: ReminderSettings) -> str:
         weighin = off
     nudge = (t("reminders_nudge_on", time=settings.nudge_time)
              if settings.nudge_enabled and settings.workout_enabled else off)
-    text = t("reminders_view", workout=workout, weighin=weighin, nudge=nudge, tz=settings.timezone,
-             now=reminders.local_now(settings).strftime("%H:%M"))
+    summary = t("reminders_summary_on", time=settings.summary_time) if settings.summary_enabled else off
+    text = t("reminders_view", workout=workout, weighin=weighin, nudge=nudge, summary=summary,
+             tz=settings.timezone, now=reminders.local_now(settings).strftime("%H:%M"))
     if settings.timezone.startswith("UTC") and settings.timezone != "UTC":
         text += "\n" + t("reminders_tz_fixed_note")
     return text
@@ -204,6 +205,8 @@ async def on_reminder_settings(callback: CallbackQuery, callback_data: RemCB,
 
     if action == "wtoggle":
         settings.workout_enabled = not settings.workout_enabled
+    elif action == "stoggle":
+        settings.summary_enabled = not settings.summary_enabled
     elif action == "ntoggle":
         settings.nudge_enabled = not settings.nudge_enabled
     elif action == "wimode":
@@ -215,7 +218,7 @@ async def on_reminder_settings(callback: CallbackQuery, callback_data: RemCB,
         field, _, raw = value.partition("|")
         hhmm = f"{raw[:2]}:{raw[2:]}"
         valid_times = {f"{h:02d}:00" for h in REMINDER_HOURS}
-        if field in ("workout", "weighin", "nudge") and hhmm in valid_times:
+        if field in ("workout", "weighin", "nudge", "summary") and hhmm in valid_times:
             setattr(settings, f"{field}_time", hhmm)
     # "view" just redraws.
     await session.commit()
@@ -244,6 +247,9 @@ def make_notifier(bot: Bot, session_factory: async_sessionmaker):
                         start = await body.last_weight(session, user) or user.profile.weight_kg
                         await bot.send_message(user.telegram_id, t("remind_weighin"),
                                                reply_markup=weight_keyboard(start))
+                elif kind == "summary":
+                    from handlers.food import send_daily_summary  # avoid a circular import
+                    await send_daily_summary(bot, session, user)
                 elif kind == "nudge":
                     await _nudge(bot, session, user, settings, today)
             except TelegramForbiddenError:

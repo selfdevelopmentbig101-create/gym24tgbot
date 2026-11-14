@@ -87,6 +87,7 @@ async def enable(session: AsyncSession, user: User, tz_name: str) -> ReminderSet
             workout_days=DEFAULT_WORKOUT_DAYS.get(days, [0, 2, 4]), workout_time="18:00",
             weighin_mode="weekly", weighin_day=0, weighin_time="08:00",
             nudge_enabled=True, nudge_time="21:00", missed_streak=0,
+            summary_enabled=True, summary_time="21:30",
         )
         session.add(settings)
     else:

@@ -125,9 +125,12 @@ def reminders_keyboard(settings) -> InlineKeyboardMarkup:
     b.button(text=t("btn_rem_nudge", state=on if settings.nudge_enabled else off),
              callback_data=RemCB(a="ntoggle"))
     b.button(text=t("btn_rem_time", time=settings.nudge_time), callback_data=RemCB(a="time", v="nudge"))
+    b.button(text=t("btn_rem_summary", state=on if settings.summary_enabled else off),
+             callback_data=RemCB(a="stoggle"))
+    b.button(text=t("btn_rem_time", time=settings.summary_time), callback_data=RemCB(a="time", v="summary"))
     b.button(text=t("btn_rem_tz"), callback_data=RemCB(a="tzpick"))
     b.button(text=t("btn_rem_all_off"), callback_data=RemCB(a="alloff"))
-    b.adjust(3, 3, 2, 2)
+    b.adjust(3, 3, 2, 2, 2)
     return b.as_markup()
 
 

@@ -21,13 +21,14 @@ EN: dict[str, str] = {
         "/progress — weight, PRs and charts\n"
         "/weight — log body weight (e.g. /weight 75.4)\n"
         "/measure — log a body measurement\n"
+        "/food — log meals, daily calories and protein\n"
         "/reminders — workout and weigh-in reminders\n"
         "/exercises — exercise library\n"
         "/settings — edit profile, disclaimer, delete data\n"
         "/about — about this bot and credits\n"
         "/deleteme — permanently delete all your data\n"
         "/cancel — stop the current setup step\n\n"
-        "Nutrition logging is coming soon."
+        "Log food: /food (or /food 650 40 for kcal and protein)."
     ),
     "about": (
         "<b>Muscle Gain Bot</b>\n"
@@ -381,6 +382,7 @@ EN: dict[str, str] = {
         "💪 Workouts: <b>{workout}</b>\n"
         "⚖️ Weigh-in: <b>{weighin}</b>\n"
         "🔔 Missed-workout nudge: <b>{nudge}</b>\n"
+        "🍽 Nutrition summary: <b>{summary}</b>\n"
         "🌍 Time zone: <b>{tz}</b> (your time now {now})"
     ),
     "reminders_workout_on": "{days} at {time}",
@@ -421,6 +423,56 @@ EN: dict[str, str] = {
     "resched_skipped": "👍 No problem. Rest up and get the next one.",
     "fewer_days_done": "✅ Switched to {n} days a week. Your plan and reminders were updated: /plan",
     "reminders_hint": "⏰ Want reminders for workouts and weigh-ins? /reminders",
+
+    # ----- Nutrition -----
+    "food_today": "Today",
+    "food_yesterday": "Yesterday",
+    "food_summary_title": "🍽 <b>{title}</b>",
+    "food_kcal_line": "🔥 Calories: <b>{value}</b> / {target} kcal\n{bar}",
+    "food_protein_line": "🥩 Protein: <b>{value}</b> / {target} g\n{bar}",
+    "food_left": "Left: <b>{kcal} kcal</b> · <b>{protein} g</b> protein",
+    "food_over": "Over by {kcal} kcal · protein left: {protein} g",
+    "food_entry_line": "• {time} {name}{servings}: {kcal} kcal, {protein} g",
+    "food_nothing_yet": "Nothing logged yet today. Tap a food below.",
+    "food_nothing_day": "Nothing logged that day.",
+    "food_week_avg": "📊 Last {days} logged days: avg <b>{kcal} kcal</b> · <b>{protein} g</b> protein",
+    "food_hint_protein": "💡 Easy protein: {ideas}",
+    "food_hint_over": "💡 Above target today. That's fine now and then; what counts is your weekly average.",
+    "food_hint_short": "💡 {kcal} kcal short. A shake, a bowl of oats or a PB sandwich closes the gap.",
+    "food_hint_great": "💪 Targets hit. Great day!",
+    "food_manual_tip": "<i>Tip: type /food 650 40 to log any meal (kcal, protein).</i>",
+    "food_evening_header": "🌙 <b>Daily summary</b>",
+    "food_cat_protein": "🥩 Protein",
+    "food_cat_carbs": "🍚 Carbs",
+    "food_cat_fruit_veg": "🥦 Fruit and veg",
+    "food_cat_snacks": "🥜 Snacks and fats",
+    "food_cat_meals": "🍲 Meals",
+    "food_cat_header": "<b>{category}</b>: tap to log 1 serving",
+    "food_list_line": "• {name} ({serving}): {kcal} kcal, {protein} g",
+    "food_cat_empty": "Nothing here fits your diet preference.",
+    "food_logged": "✅ <b>{name}</b>{serving}{servings}: {kcal} kcal, {protein} g protein\n"
+                   "<i>Different amount? Tap ×½ to ×2.</i>",
+    "food_removed": "Removed: {name}",
+    "food_entry_gone": "That entry no longer exists.",
+    "food_edit_header": "🗑 Tap an entry to delete it:",
+    "food_edit_empty": "No entries to delete.",
+    "food_manual_prompt": "✍️ <b>Manual entry</b>\nType calories and protein, optionally with a name:\n"
+                          "<code>650 40</code> or <code>chicken wrap 650 40</code>",
+    "btn_food_manual": "✍️ Manual",
+    "btn_food_edit": "🗑 Edit",
+    "btn_food_prev_day": "◀️ Previous day",
+    "btn_food_next_day": "Next day ▶️",
+    "btn_food_back": "⬅️ Food",
+    "btn_food_delete": "🗑 {name} ({kcal} kcal)",
+    "btn_log_food": "🍽 Log food",
+    "err_manual_format": "Please type calories then protein, e.g. <code>650 40</code> or "
+                         "<code>chicken wrap 650 40</code>.",
+    "err_meal_kcal": "Calories for one entry must be between 1 and 3000.",
+    "err_meal_protein_range": "Protein for one entry must be between 0 and 300 g.",
+    "err_meal_protein": "That's more protein than the calories allow (1 g protein = 4 kcal). "
+                        "Check the numbers.",
+    "reminders_summary_on": "at {time} (if you logged food)",
+    "btn_rem_summary": "🍽 Summary: {state}",
 }
 
 # Phase 6: add more language dicts here (or load them from files).

@@ -6,12 +6,13 @@ numbers. Every user-owned table links to users.id with ON DELETE CASCADE, so
 deleting the user row (/deleteme) removes all of their data. Tables added in
 later phases (workouts, sets, body weight, meals...) must follow the same rule.
 """
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from sqlalchemy import (
     JSON,
     BigInteger,
     Boolean,
+    Date,
     DateTime,
     Enum,
     Float,
@@ -288,3 +289,26 @@ class ReminderSettings(Base):
     missed_streak: Mapped[int] = mapped_column(Integer, default=0)
     # One-off "remind me tomorrow" from the missed-workout nudge (UTC).
     rescheduled_for: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Evening calories/protein summary (only sent if food was logged that day).
+    summary_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    summary_time: Mapped[str] = mapped_column(String(5), default="21:30")
+
+
+class MealLog(Base):
+    """
+    One food entry. Totals are stored (not looked up from foods.json) so
+    editing the food list never changes your history.
+    """
+
+    __tablename__ = "meal_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    # Calendar day in the user's time zone (so "today" matches their clock).
+    day: Mapped[date] = mapped_column(Date, index=True)
+    logged_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    food_id: Mapped[str | None] = mapped_column(String(30), nullable=True)  # None = manual entry
+    name: Mapped[str] = mapped_column(String(60))
+    servings: Mapped[float] = mapped_column(Float, default=1)
+    kcal: Mapped[int] = mapped_column(Integer)
+    protein_g: Mapped[float] = mapped_column(Float)

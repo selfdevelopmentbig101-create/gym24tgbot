@@ -533,7 +533,7 @@ async def test_reminders_setup_and_nudges(env):
         assert "Mon, Tue, Thu, Fri at 18:00" in text and "UTC+02:00" in text
         async with env["session_factory"]() as s:
             user = await users.get_user(s, u.user_id)
-        assert set(scheduler.jobs_for(user.id)) == {"workout", "nudge", "weighin"}
+        assert set(scheduler.jobs_for(user.id)) == {"workout", "nudge", "weighin", "summary"}
 
         await u.tap("🕕 18:00")                                     # workout time picker
         await u.tap("07:00")
@@ -595,3 +595,84 @@ async def test_reminders_setup_and_nudges(env):
     finally:
         set_scheduler(None)
         scheduler.shutdown()
+
+
+# ---------- Phase 5: nutrition ----------
+
+async def test_food_logging_flow(env):
+    u = FakeUser(env, 11111)
+    await onboard_intermediate(u)               # lean bulk, 80 kg
+
+    await u.send("/food")
+    text = u.last_text()
+    assert "Calories: <b>0</b>" in text and "Nothing logged yet" in text
+    assert "Easy protein" in text               # 0 g of ~160 g protein so far
+
+    await u.tap("Protein")                      # 3 taps: /food -> category -> food
+    assert "Chicken breast (150 g cooked): 250 kcal, 46 g" in u.last_text()
+    await u.tap("Chicken breast")
+    text = u.last_text()
+    assert "Chicken breast</b> (150 g cooked): 250 kcal, 46 g protein" in text
+    assert "Calories: <b>250</b>" in text
+    await u.tap("×2")
+    assert "×2: 500 kcal, 92 g" in u.last_text() and "Calories: <b>500</b>" in u.last_text()
+
+    await u.tap("Food")
+    assert "🔁 Chicken breast" in str(u.last_markup().inline_keyboard)   # recent: 2 taps
+    await u.tap("🔁 Chicken breast")
+    assert "Calories: <b>750</b>" in u.last_text()
+    await u.tap("Undo")
+    assert "Calories: <b>500</b>" in u.last_text()
+
+    await u.tap("Manual")
+    await u.send("way too much 100 80")
+    assert "more protein than the calories allow" in u.last_text()
+    await u.send("Burrito bowl 850 45")
+    assert "Burrito bowl</b>: 850 kcal" in u.last_text() and "Calories: <b>1,350</b>" in u.last_text()
+    await u.send("/food 300 25")                # command shortcut
+    assert "Manual entry</b>: 300 kcal" in u.last_text()
+
+    await u.send("/food")
+    await u.tap("Edit")
+    await u.tap("Manual entry")
+    assert "Removed: Manual entry" in u.last_call("AnswerCallbackQuery").text
+    await u.tap("Food")
+    text = u.last_text()
+    assert "Calories: <b>1,350</b>" in text and "Burrito bowl" in text
+
+    await u.tap("Previous day")
+    assert "Yesterday" in u.last_text() and "Nothing logged that day" in u.last_text()
+    await u.tap("Next day")
+    assert "Today" in u.last_text()
+
+    # Typing "650 40" outside manual mode is not treated as food (it's a workout set format).
+    await u.send("650 40")
+    assert "No workout in progress" in u.last_text()
+
+
+async def test_vegan_sees_only_vegan_foods_and_evening_summary(env):
+    from handlers.food import send_daily_summary
+    u = FakeUser(env, 11222)
+    await u.send("/start")
+    await u.tap("I understand")
+    await u.tap("Recomposition")
+    for text, taps in (("30", ["Female"]), ("165", []), ("60", ["Beginner", "3", "Home + dumbbells",
+                                                               "None", "Vegan"])):
+        await u.send(text)
+        for label in taps:
+            await u.tap(label)
+
+    await u.send("/food")
+    await u.tap("Protein")
+    names = {b.text for row in u.last_markup().inline_keyboard for b in row}
+    assert "Firm tofu" in names and "Chicken breast" not in names and "Whey protein" not in names
+
+    async with env["session_factory"]() as s:
+        user = await users.get_user(s, u.user_id)
+        assert await send_daily_summary(env["bot"], s, user) is False   # nothing logged: no message
+    await u.tap("Firm tofu")
+    async with env["session_factory"]() as s:
+        user = await users.get_user(s, u.user_id)
+        assert await send_daily_summary(env["bot"], s, user) is True
+    text = u.last_text()
+    assert "Daily summary" in text and "kcal short" in text and "Easy protein" in text

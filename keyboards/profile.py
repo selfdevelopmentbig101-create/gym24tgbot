@@ -7,6 +7,7 @@ from aiogram.types import InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from database.enums import Diet, Equipment, Experience, Goal, Injury, Sex
+from keyboards.food import FoodCB
 from services.validation import TRAINING_DAYS_RANGE
 from utils.texts import t
 
@@ -104,6 +105,8 @@ def disclaimer_keyboard() -> InlineKeyboardMarkup:
 def profile_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.button(text=t("btn_edit_profile"), callback_data=MenuCB(action="edit"))
+    builder.button(text=t("btn_log_food"), callback_data=FoodCB(a="menu"))
+    builder.adjust(2)
     return builder.as_markup()
 
 

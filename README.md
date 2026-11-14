@@ -3,7 +3,7 @@
 A Telegram bot that helps people gain muscle: workout plans, logging,
 progress tracking, calorie/protein targets and reminders.
 
-**Status: Phases 1–4 are done: onboarding, exercise library and plan generator, workout logger, progress and reminders.**
+**Status: Phases 1–5 are done: onboarding, exercise library and plan generator, workout logger, progress and reminders, nutrition.**
 
 ## Project structure
 
@@ -16,7 +16,7 @@ database/
   enums.py             Fixed choices (goal, sex, equipment, ...)
   models.py            Tables: users, profiles, exercises, workout_plans, plan_days,
                        plan_exercises, media_cache, workout_sessions, set_logs,
-                       body_weight_logs, measurement_logs, reminder_settings
+                       body_weight_logs, measurement_logs, reminder_settings, meal_logs
 services/              Business logic, no Telegram code (reusable by a Mini App or native app)
   nutrition.py         TDEE (Mifflin-St Jeor), surplus, protein, safety limits
   validation.py        Input parsing/validation (age, height, weight...)
@@ -34,6 +34,8 @@ services/              Business logic, no Telegram code (reusable by a Mini App 
   charts.py            matplotlib charts -> PNG
   reminders.py         Reminder settings, time zones, "trained today?" checks
   scheduler.py         APScheduler jobs built from reminder settings
+  foods.py             Quick-log food list (data/foods.json), diet filter
+  meals.py             Meal logging, daily totals, weekly average
 handlers/              Telegram handlers
   common.py            /start, /help, /about, /cancel, disclaimer
   onboarding.py        10-step profile form (also used to edit one field)
@@ -44,6 +46,7 @@ handlers/              Telegram handlers
   workout.py           /workout: logger card, quick buttons, typed sets, rest timer, summary
   progress.py          /progress, /weight, /measure: summary, PRs, charts
   reminders.py         /reminders settings and the reminder/nudge messages
+  food.py              /food: quick logging, manual entry, daily summary
 keyboards/             Inline keyboards and callback data
 utils/
   texts.py             All user-facing texts (ready for multiple languages)
@@ -53,6 +56,7 @@ utils/
 data/
   core_exercises.json     The 87 curated exercises (plans use only these)
   injury_exclusions.json  Exercises skipped for each injury (edit freely)
+  foods.json              Quick-log foods with kcal/protein per serving (edit freely)
 assets/exercises/      Exercise images (see below)
 tests/                 Unit, database and end-to-end tests
 ```
@@ -120,7 +124,8 @@ messages, image fallback and animation building, the plan generator for every
 combination of equipment, experience, injuries and training days, and full
 simulated chats (onboarding, editing, plans, cards, substitutes, the library,
 media caching, workout logging with rest timers, progress, charts, reminders and
-missed-workout nudges, `/deleteme`), plus the overload, PR, trend and scheduling rules.
+missed-workout nudges, food logging, `/deleteme`), plus the overload, PR, trend,
+scheduling and food-list rules.
 
 Manual test in Telegram:
 
@@ -150,7 +155,13 @@ Manual test in Telegram:
     zone; or type e.g. `Europe/Berlin`). Defaults: workout reminders on your
     training days at 18:00, weekly weigh-in Monday 08:00, missed-workout nudge
     at 21:00. Everything is adjustable with buttons.
-11. `/deleteme` removes your profile, plan, workouts, weigh-ins, measurements and reminders.
+11. `/food` -> tap a category -> tap a food (logs 1 serving; adjust ×½–×2 after).
+    Foods you logged recently appear at the top (2 taps). **✍️ Manual** or
+    `/food 650 40` logs any meal by calories and protein. The summary shows
+    calories and protein vs your targets, what's left, a 7-day average and
+    protein ideas that fit your diet. **◀️ Previous day** browses the last week.
+12. `/deleteme` removes your profile, plan, workouts, weigh-ins, measurements,
+    meals and reminders.
 
 ## Logging and progression
 
@@ -180,6 +191,20 @@ Manual test in Telegram:
   plan and reminders.
 - **Time zones:** the 1-tap buttons set a fixed UTC offset, so re-pick it after
   daylight saving changes. Typing a name like `Europe/Berlin` adjusts automatically.
+
+## Nutrition
+
+- **Food list:** `data/foods.json` has about 45 common foods with per-serving calories
+  and protein (approximate, rounded from USDA FoodData Central). Each food has
+  a diet level (vegan / vegetarian / pescatarian / meat) and users only see
+  foods that fit their diet preference. Add or edit foods freely; the file is
+  checked on startup (e.g. protein can't exceed total calories).
+- **Days** follow the user's time zone from `/reminders` (UTC until set).
+  Entries store their own totals, so editing the food list never changes history.
+- **Evening summary:** at 21:30 by default (change or turn off in `/reminders`),
+  sent only on days you logged food. It shows what's left and a gentle tip
+  (e.g. "a shake closes the gap"). It never suggests skipping meals, and when you go
+  over, it points to the weekly average instead of a single day.
 
 ## How plans are built
 

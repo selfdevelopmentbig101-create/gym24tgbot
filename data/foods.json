@@ -1,0 +1,53 @@
+{
+  "_comment": "Quick-log food list. Values are per serving and approximate (rounded from USDA FoodData Central). diet: vegan < vegetarian < pescatarian < meat (what the food contains). Edit freely; validated at startup.",
+  "foods": [
+    {"id": "chicken-breast", "name": "Chicken breast", "serving": "150 g cooked", "kcal": 250, "protein_g": 46, "category": "protein", "diet": "meat"},
+    {"id": "turkey-breast", "name": "Turkey breast", "serving": "150 g cooked", "kcal": 220, "protein_g": 45, "category": "protein", "diet": "meat"},
+    {"id": "lean-beef-mince", "name": "Lean beef mince", "serving": "150 g cooked", "kcal": 330, "protein_g": 39, "category": "protein", "diet": "meat"},
+    {"id": "salmon", "name": "Salmon fillet", "serving": "150 g cooked", "kcal": 310, "protein_g": 33, "category": "protein", "diet": "pescatarian"},
+    {"id": "tuna-can", "name": "Tuna (canned in water)", "serving": "1 can, 120 g drained", "kcal": 140, "protein_g": 31, "category": "protein", "diet": "pescatarian"},
+    {"id": "eggs", "name": "Eggs", "serving": "2 large", "kcal": 145, "protein_g": 13, "category": "protein", "diet": "vegetarian"},
+    {"id": "greek-yogurt", "name": "Greek yogurt (0%)", "serving": "200 g", "kcal": 120, "protein_g": 20, "category": "protein", "diet": "vegetarian"},
+    {"id": "cottage-cheese", "name": "Cottage cheese", "serving": "200 g", "kcal": 195, "protein_g": 22, "category": "protein", "diet": "vegetarian"},
+    {"id": "whey", "name": "Whey protein", "serving": "1 scoop, 30 g", "kcal": 120, "protein_g": 24, "category": "protein", "diet": "vegetarian"},
+    {"id": "milk", "name": "Milk (semi-skimmed)", "serving": "250 ml", "kcal": 125, "protein_g": 9, "category": "protein", "diet": "vegetarian"},
+    {"id": "tofu", "name": "Firm tofu", "serving": "150 g", "kcal": 215, "protein_g": 26, "category": "protein", "diet": "vegan"},
+    {"id": "tempeh", "name": "Tempeh", "serving": "100 g", "kcal": 190, "protein_g": 20, "category": "protein", "diet": "vegan"},
+    {"id": "lentils", "name": "Lentils", "serving": "200 g cooked", "kcal": 230, "protein_g": 18, "category": "protein", "diet": "vegan"},
+    {"id": "chickpeas", "name": "Chickpeas", "serving": "200 g cooked", "kcal": 330, "protein_g": 18, "category": "protein", "diet": "vegan"},
+    {"id": "soy-milk", "name": "Soy milk", "serving": "250 ml", "kcal": 100, "protein_g": 8, "category": "protein", "diet": "vegan"},
+    {"id": "vegan-protein", "name": "Vegan protein powder", "serving": "1 scoop, 30 g", "kcal": 115, "protein_g": 22, "category": "protein", "diet": "vegan"},
+
+    {"id": "rice", "name": "Rice", "serving": "200 g cooked", "kcal": 260, "protein_g": 5, "category": "carbs", "diet": "vegan"},
+    {"id": "oats", "name": "Oats", "serving": "60 g dry", "kcal": 230, "protein_g": 8, "category": "carbs", "diet": "vegan"},
+    {"id": "pasta", "name": "Pasta", "serving": "200 g cooked", "kcal": 315, "protein_g": 12, "category": "carbs", "diet": "vegan"},
+    {"id": "potatoes", "name": "Potatoes", "serving": "300 g boiled", "kcal": 260, "protein_g": 6, "category": "carbs", "diet": "vegan"},
+    {"id": "sweet-potato", "name": "Sweet potato", "serving": "250 g baked", "kcal": 225, "protein_g": 5, "category": "carbs", "diet": "vegan"},
+    {"id": "bread", "name": "Wholegrain bread", "serving": "2 slices", "kcal": 160, "protein_g": 8, "category": "carbs", "diet": "vegan"},
+    {"id": "bagel", "name": "Bagel", "serving": "1 plain", "kcal": 270, "protein_g": 10, "category": "carbs", "diet": "vegan"},
+    {"id": "wrap", "name": "Tortilla wrap", "serving": "1 large", "kcal": 210, "protein_g": 6, "category": "carbs", "diet": "vegan"},
+
+    {"id": "banana", "name": "Banana", "serving": "1 medium", "kcal": 105, "protein_g": 1, "category": "fruit_veg", "diet": "vegan"},
+    {"id": "apple", "name": "Apple", "serving": "1 medium", "kcal": 95, "protein_g": 0, "category": "fruit_veg", "diet": "vegan"},
+    {"id": "berries", "name": "Mixed berries", "serving": "150 g", "kcal": 75, "protein_g": 1, "category": "fruit_veg", "diet": "vegan"},
+    {"id": "broccoli", "name": "Broccoli", "serving": "150 g", "kcal": 50, "protein_g": 4, "category": "fruit_veg", "diet": "vegan"},
+    {"id": "mixed-veg", "name": "Mixed vegetables", "serving": "200 g", "kcal": 70, "protein_g": 4, "category": "fruit_veg", "diet": "vegan"},
+
+    {"id": "peanut-butter", "name": "Peanut butter", "serving": "2 tbsp, 32 g", "kcal": 190, "protein_g": 8, "category": "snacks", "diet": "vegan"},
+    {"id": "almonds", "name": "Almonds", "serving": "30 g", "kcal": 175, "protein_g": 6, "category": "snacks", "diet": "vegan"},
+    {"id": "olive-oil", "name": "Olive oil", "serving": "1 tbsp", "kcal": 120, "protein_g": 0, "category": "snacks", "diet": "vegan"},
+    {"id": "avocado", "name": "Avocado", "serving": "half, 100 g", "kcal": 160, "protein_g": 2, "category": "snacks", "diet": "vegan"},
+    {"id": "cheddar", "name": "Cheddar cheese", "serving": "30 g", "kcal": 120, "protein_g": 7, "category": "snacks", "diet": "vegetarian"},
+    {"id": "protein-bar", "name": "Protein bar", "serving": "1 bar, 60 g", "kcal": 220, "protein_g": 20, "category": "snacks", "diet": "vegetarian"},
+    {"id": "dark-chocolate", "name": "Dark chocolate", "serving": "25 g", "kcal": 150, "protein_g": 2, "category": "snacks", "diet": "vegetarian"},
+
+    {"id": "chicken-rice-bowl", "name": "Chicken & rice bowl", "serving": "1 bowl", "kcal": 600, "protein_g": 45, "category": "meals", "diet": "meat"},
+    {"id": "chicken-sandwich", "name": "Chicken sandwich", "serving": "1 sandwich", "kcal": 450, "protein_g": 30, "category": "meals", "diet": "meat"},
+    {"id": "burrito", "name": "Beef burrito", "serving": "1 burrito", "kcal": 750, "protein_g": 35, "category": "meals", "diet": "meat"},
+    {"id": "salmon-potatoes", "name": "Salmon, potatoes & veg", "serving": "1 plate", "kcal": 650, "protein_g": 40, "category": "meals", "diet": "pescatarian"},
+    {"id": "pizza-slice", "name": "Pizza", "serving": "1 slice", "kcal": 285, "protein_g": 12, "category": "meals", "diet": "vegetarian"},
+    {"id": "tofu-stir-fry", "name": "Tofu stir-fry with rice", "serving": "1 plate", "kcal": 550, "protein_g": 28, "category": "meals", "diet": "vegan"},
+    {"id": "lentil-curry", "name": "Lentil curry with rice", "serving": "1 plate", "kcal": 600, "protein_g": 24, "category": "meals", "diet": "vegan"},
+    {"id": "gainer-shake", "name": "Homemade gainer shake", "serving": "milk, oats, banana, PB, whey", "kcal": 750, "protein_g": 45, "category": "meals", "diet": "vegetarian"}
+  ]
+}

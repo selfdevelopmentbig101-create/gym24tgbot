@@ -10,6 +10,7 @@ Jobs per user (internal user id):
   nudge:{id}    same weekdays at nudge_time: "missed today's workout?"
   weighin:{id}  daily or weekly at weighin_time
   resched:{id}  one-off reminder after "remind me tomorrow"
+  summary:{id}  daily nutrition summary at summary_time (sent only if food was logged)
 The job only calls `notify(kind, user_id)`; the Telegram side decides what to send.
 """
 import logging
@@ -28,7 +29,7 @@ from services.reminders import parse_hhmm, parse_tz
 logger = logging.getLogger(__name__)
 
 Notify = Callable[[str, int], Awaitable[None]]
-JOB_KINDS = ("workout", "nudge", "weighin", "resched")
+JOB_KINDS = ("workout", "nudge", "weighin", "resched", "summary")
 
 
 class ReminderScheduler:
@@ -76,6 +77,9 @@ class ReminderScheduler:
             weekday = "*" if settings.weighin_mode == "daily" else str(settings.weighin_day)
             self._add("weighin", user_id, CronTrigger(day_of_week=weekday, hour=at.hour,
                                                       minute=at.minute, timezone=tz))
+        if settings.summary_enabled:
+            at = parse_hhmm(settings.summary_time)
+            self._add("summary", user_id, CronTrigger(hour=at.hour, minute=at.minute, timezone=tz))
         when = settings.rescheduled_for
         if when is not None:
             when = when if when.tzinfo else when.replace(tzinfo=timezone.utc)

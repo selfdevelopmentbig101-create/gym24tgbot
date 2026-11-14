@@ -21,6 +21,7 @@ from handlers import get_routers
 from handlers.reminders import make_notifier
 from services.exercise_import import ExerciseDataError, import_exercises, load_exercises_file
 from services.exercises import get_injury_rules
+from services.foods import FoodDataError, all_foods
 from services.rest_timer import rest_timers
 from services.scheduler import ReminderScheduler, set_scheduler
 from utils.logging_setup import setup_logging
@@ -36,6 +37,7 @@ BOT_COMMANDS = [
     BotCommand(command="plan", description="Your workout plan"),
     BotCommand(command="progress", description="Weight, PRs and charts"),
     BotCommand(command="weight", description="Log body weight"),
+    BotCommand(command="food", description="Log meals and see calories and protein"),
     BotCommand(command="reminders", description="Workout and weigh-in reminders"),
     BotCommand(command="exercises", description="Exercise library"),
     BotCommand(command="settings", description="Edit profile and settings"),
@@ -91,9 +93,10 @@ async def main() -> None:
     try:
         records = load_exercises_file()
         get_injury_rules()  # validates data/injury_exclusions.json too
+        all_foods()  # validates data/foods.json
         async with session_factory() as session:
             await import_exercises(session, records)
-    except ExerciseDataError as error:
+    except (ExerciseDataError, FoodDataError) as error:
         logger.error("%s", error)
         await engine.dispose()
         sys.exit(1)
