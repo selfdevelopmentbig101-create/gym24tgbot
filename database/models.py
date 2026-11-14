@@ -112,3 +112,80 @@ class Exercise(Base):
     substitute_ids: Mapped[list[str]] = mapped_column(JSON, default=list)
     # Short coaching cues, filled in by hand later.
     form_tips: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # False if the exercise was removed from the JSON. It's kept (old plans and
+    # logs may point to it) but no longer offered.
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Position in core_exercises.json; keeps your curated order (earlier = preferred).
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class WorkoutPlan(Base):
+    """A user's generated plan. One active plan per user; regenerating replaces it."""
+
+    __tablename__ = "workout_plans"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), unique=True, index=True
+    )
+    split: Mapped[str] = mapped_column(String(30))  # e.g. "full_body", "upper_lower"
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    days: Mapped[list["PlanDay"]] = relationship(
+        back_populates="plan",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="PlanDay.day_index",
+        lazy="selectin",
+    )
+
+
+class PlanDay(Base):
+    __tablename__ = "plan_days"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    plan_id: Mapped[int] = mapped_column(
+        ForeignKey("workout_plans.id", ondelete="CASCADE"), index=True
+    )
+    day_index: Mapped[int] = mapped_column(Integer)  # 0-based order in the week
+    name_key: Mapped[str] = mapped_column(String(20))  # text key: "upper", "push"...
+    suffix: Mapped[str] = mapped_column(String(4), default="")  # "A", "B" or ""
+
+    plan: Mapped[WorkoutPlan] = relationship(back_populates="days")
+    exercises: Mapped[list["PlanExercise"]] = relationship(
+        back_populates="day",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="PlanExercise.position",
+        lazy="selectin",
+    )
+
+
+class PlanExercise(Base):
+    __tablename__ = "plan_exercises"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    day_id: Mapped[int] = mapped_column(ForeignKey("plan_days.id", ondelete="CASCADE"), index=True)
+    position: Mapped[int] = mapped_column(Integer)
+    exercise_id: Mapped[str] = mapped_column(ForeignKey("exercises.id"))
+    sets: Mapped[int] = mapped_column(Integer)
+    rep_min: Mapped[int] = mapped_column(Integer)
+    rep_max: Mapped[int] = mapped_column(Integer)
+    # True when reps mean seconds (e.g. plank 30-45 s).
+    timed: Mapped[bool] = mapped_column(Boolean, default=False)
+    rest_seconds: Mapped[int] = mapped_column(Integer)
+
+    day: Mapped[PlanDay] = relationship(back_populates="exercises", lazy="selectin")
+    exercise: Mapped[Exercise] = relationship(lazy="selectin")
+
+
+class MediaCache(Base):
+    """
+    Telegram file_ids of exercise media we already uploaded, so each image or
+    animation is uploaded only once. Not user data.
+    """
+
+    __tablename__ = "media_cache"
+
+    key: Mapped[str] = mapped_column(String(200), primary_key=True)
+    file_id: Mapped[str] = mapped_column(String(255))

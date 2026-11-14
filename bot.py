@@ -18,6 +18,8 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from config import config
 from database.base import create_tables, make_engine, make_session_factory
 from handlers import get_routers
+from services.exercise_import import ExerciseDataError, import_exercises, load_exercises_file
+from services.exercises import get_injury_rules
 from utils.logging_setup import setup_logging
 from utils.middlewares import DbSessionMiddleware, RateLimitMiddleware
 from utils.texts import t
@@ -27,6 +29,8 @@ logger = logging.getLogger(__name__)
 BOT_COMMANDS = [
     BotCommand(command="start", description="Start or resume setup"),
     BotCommand(command="profile", description="Your profile and daily targets"),
+    BotCommand(command="plan", description="Your workout plan"),
+    BotCommand(command="exercises", description="Exercise library"),
     BotCommand(command="settings", description="Edit profile and settings"),
     BotCommand(command="help", description="All commands"),
     BotCommand(command="about", description="About and credits"),
@@ -73,7 +77,20 @@ async def main() -> None:
 
     engine = make_engine(config.database_url)
     await create_tables(engine)
-    dp = create_dispatcher(make_session_factory(engine))
+    session_factory = make_session_factory(engine)
+
+    # Keep the exercises table in sync with data/core_exercises.json.
+    try:
+        records = load_exercises_file()
+        get_injury_rules()  # validates data/injury_exclusions.json too
+        async with session_factory() as session:
+            await import_exercises(session, records)
+    except ExerciseDataError as error:
+        logger.error("%s", error)
+        await engine.dispose()
+        sys.exit(1)
+
+    dp = create_dispatcher(session_factory)
 
     bot = Bot(config.bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     try:

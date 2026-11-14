@@ -1,0 +1,1130 @@
+[
+  {
+    "id": "bench-press",
+    "name": "Barbell Bench Press",
+    "muscle_group": "chest",
+    "equipment": "barbell",
+    "difficulty": "intermediate",
+    "movement_type": "compound",
+    "home_friendly": false,
+    "substitute_ids": [
+      "db-bench-press",
+      "push-up"
+    ]
+  },
+  {
+    "id": "db-bench-press",
+    "name": "Dumbbell Bench Press",
+    "muscle_group": "chest",
+    "equipment": "dumbbell",
+    "difficulty": "beginner",
+    "movement_type": "compound",
+    "home_friendly": true,
+    "substitute_ids": [
+      "bench-press",
+      "push-up"
+    ]
+  },
+  {
+    "id": "incline-bench-press",
+    "name": "Incline Barbell Bench Press",
+    "muscle_group": "chest",
+    "equipment": "barbell",
+    "difficulty": "intermediate",
+    "movement_type": "compound",
+    "home_friendly": false,
+    "substitute_ids": [
+      "incline-db-press",
+      "chest-press-machine"
+    ]
+  },
+  {
+    "id": "incline-db-press",
+    "name": "Incline Dumbbell Press",
+    "muscle_group": "chest",
+    "equipment": "dumbbell",
+    "difficulty": "beginner",
+    "movement_type": "compound",
+    "home_friendly": true,
+    "substitute_ids": [
+      "incline-bench-press",
+      "incline-push-ups"
+    ]
+  },
+  {
+    "id": "chest-press-machine",
+    "name": "Machine Chest Press",
+    "muscle_group": "chest",
+    "equipment": "machine",
+    "difficulty": "beginner",
+    "movement_type": "compound",
+    "home_friendly": false,
+    "substitute_ids": [
+      "db-bench-press",
+      "pec-deck"
+    ]
+  },
+  {
+    "id": "cable-fly",
+    "name": "Cable Fly",
+    "muscle_group": "chest",
+    "equipment": "cable",
+    "difficulty": "beginner",
+    "movement_type": "isolation",
+    "home_friendly": false,
+    "substitute_ids": [
+      "db-fly",
+      "pec-deck"
+    ]
+  },
+  {
+    "id": "db-fly",
+    "name": "Dumbbell Fly",
+    "muscle_group": "chest",
+    "equipment": "dumbbell",
+    "difficulty": "beginner",
+    "movement_type": "isolation",
+    "home_friendly": true,
+    "substitute_ids": [
+      "cable-fly",
+      "pec-deck"
+    ]
+  },
+  {
+    "id": "pec-deck",
+    "name": "Pec Deck",
+    "muscle_group": "chest",
+    "equipment": "machine",
+    "difficulty": "beginner",
+    "movement_type": "isolation",
+    "home_friendly": false,
+    "substitute_ids": [
+      "cable-fly",
+      "db-fly"
+    ]
+  },
+  {
+    "id": "push-up",
+    "name": "Push-Up",
+    "muscle_group": "chest",
+    "equipment": "bodyweight",
+    "difficulty": "beginner",
+    "movement_type": "compound",
+    "home_friendly": true,
+    "substitute_ids": [
+      "incline-push-ups",
+      "db-bench-press"
+    ]
+  },
+  {
+    "id": "incline-push-ups",
+    "name": "Incline Push-Up",
+    "muscle_group": "chest",
+    "equipment": "bodyweight",
+    "difficulty": "beginner",
+    "movement_type": "compound",
+    "home_friendly": true,
+    "substitute_ids": [
+      "push-up",
+      "incline-db-press"
+    ]
+  },
+  {
+    "id": "dips",
+    "name": "Dips",
+    "muscle_group": "chest",
+    "equipment": "bodyweight",
+    "difficulty": "intermediate",
+    "movement_type": "compound",
+    "home_friendly": false,
+    "substitute_ids": [
+      "bench-dips",
+      "close-grip-bench-press"
+    ]
+  },
+  {
+    "id": "pull-up",
+    "name": "Pull-Up",
+    "muscle_group": "back",
+    "equipment": "bodyweight",
+    "difficulty": "intermediate",
+    "movement_type": "compound",
+    "home_friendly": false,
+    "substitute_ids": [
+      "lat-pulldown",
+      "assisted-pull-ups"
+    ]
+  },
+  {
+    "id": "chin-ups",
+    "name": "Chin-Up",
+    "muscle_group": "back",
+    "equipment": "bodyweight",
+    "difficulty": "intermediate",
+    "movement_type": "compound",
+    "home_friendly": false,
+    "substitute_ids": [
+      "lat-pulldown",
+      "assisted-pull-ups"
+    ]
+  },
+  {
+    "id": "assisted-pull-ups",
+    "name": "Assisted Pull-Up",
+    "muscle_group": "back",
+    "equipment": "machine",
+    "difficulty": "beginner",
+    "movement_type": "compound",
+    "home_friendly": false,
+    "substitute_ids": [
+      "lat-pulldown",
+      "pull-up"
+    ]
+  },
+  {
+    "id": "lat-pulldown",
+    "name": "Lat Pulldown",
+    "muscle_group": "back",
+    "equipment": "cable",
+    "difficulty": "beginner",
+    "movement_type": "compound",
+    "home_friendly": false,
+    "substitute_ids": [
+      "pull-up",
+      "assisted-pull-ups"
+    ]
+  },
+  {
+    "id": "barbell-row",
+    "name": "Barbell Row",
+    "muscle_group": "back",
+    "equipment": "barbell",
+    "difficulty": "intermediate",
+    "movement_type": "compound",
+    "home_friendly": false,
+    "substitute_ids": [
+      "single-arm-db-row",
+      "seated-cable-row"
+    ]
+  },
+  {
+    "id": "single-arm-db-row",
+    "name": "Single-Arm Dumbbell Row",
+    "muscle_group": "back",
+    "equipment": "dumbbell",
+    "difficulty": "beginner",
+    "movement_type": "compound",
+    "home_friendly": true,
+    "substitute_ids": [
+      "chest-supported-db-row",
+      "seated-cable-row"
+    ]
+  },
+  {
+    "id": "chest-supported-db-row",
+    "name": "Chest-Supported Dumbbell Row",
+    "muscle_group": "back",
+    "equipment": "dumbbell",
+    "difficulty": "beginner",
+    "movement_type": "compound",
+    "home_friendly": true,
+    "substitute_ids": [
+      "single-arm-db-row",
+      "chest-supported-machine-row"
+    ]
+  },
+  {
+    "id": "seated-cable-row",
+    "name": "Seated Cable Row",
+    "muscle_group": "back",
+    "equipment": "cable",
+    "difficulty": "beginner",
+    "movement_type": "compound",
+    "home_friendly": false,
+    "substitute_ids": [
+      "chest-supported-machine-row",
+      "single-arm-db-row"
+    ]
+  },
+  {
+    "id": "chest-supported-machine-row",
+    "name": "Chest-Supported Machine Row",
+    "muscle_group": "back",
+    "equipment": "machine",
+    "difficulty": "beginner",
+    "movement_type": "compound",
+    "home_friendly": false,
+    "substitute_ids": [
+      "seated-cable-row",
+      "chest-supported-db-row"
+    ]
+  },
+  {
+    "id": "t-bar-row",
+    "name": "T-Bar Row",
+    "muscle_group": "back",
+    "equipment": "barbell",
+    "difficulty": "intermediate",
+    "movement_type": "compound",
+    "home_friendly": false,
+    "substitute_ids": [
+      "barbell-row",
+      "seated-cable-row"
+    ]
+  },
+  {
+    "id": "straight-arm-pulldown",
+    "name": "Straight-Arm Pulldown",
+    "muscle_group": "back",
+    "equipment": "cable",
+    "difficulty": "beginner",
+    "movement_type": "isolation",
+    "home_friendly": false,
+    "substitute_ids": [
+      "lat-pulldown",
+      "seated-cable-row"
+    ]
+  },
+  {
+    "id": "inverted-row",
+    "name": "Inverted Row",
+    "muscle_group": "back",
+    "equipment": "bodyweight",
+    "difficulty": "beginner",
+    "movement_type": "compound",
+    "home_friendly": true,
+    "substitute_ids": [
+      "single-arm-db-row",
+      "seated-cable-row"
+    ]
+  },
+  {
+    "id": "deadlift",
+    "name": "Conventional Deadlift",
+    "muscle_group": "back",
+    "equipment": "barbell",
+    "difficulty": "advanced",
+    "movement_type": "compound",
+    "home_friendly": false,
+    "substitute_ids": [
+      "hex-bar-deadlift",
+      "romanian-deadlift"
+    ]
+  },
+  {
+    "id": "hex-bar-deadlift",
+    "name": "Hex Bar Deadlift",
+    "muscle_group": "back",
+    "equipment": "barbell",
+    "difficulty": "intermediate",
+    "movement_type": "compound",
+    "home_friendly": false,
+    "substitute_ids": [
+      "deadlift",
+      "romanian-deadlift"
+    ]
+  },
+  {
+    "id": "db-shrug",
+    "name": "Dumbbell Shrug",
+    "muscle_group": "back",
+    "equipment": "dumbbell",
+    "difficulty": "beginner",
+    "movement_type": "isolation",
+    "home_friendly": true,
+    "substitute_ids": [
+      "chest-supported-db-row",
+      "face-pull"
+    ]
+  },
+  {
+    "id": "back-extension",
+    "name": "Back Extension",
+    "muscle_group": "back",
+    "equipment": "bodyweight",
+    "difficulty": "beginner",
+    "movement_type": "isolation",
+    "home_friendly": false,
+    "substitute_ids": [
+      "dumbbell-romanian-deadlift",
+      "glute-bridge"
+    ]
+  },
+  {
+    "id": "ohp",
+    "name": "Overhead Press",
+    "muscle_group": "shoulders",
+    "equipment": "barbell",
+    "difficulty": "intermediate",
+    "movement_type": "compound",
+    "home_friendly": false,
+    "substitute_ids": [
+      "dumbbell-shoulder-press",
+      "machine-shoulder-press"
+    ]
+  },
+  {
+    "id": "dumbbell-shoulder-press",
+    "name": "Dumbbell Shoulder Press",
+    "muscle_group": "shoulders",
+    "equipment": "dumbbell",
+    "difficulty": "beginner",
+    "movement_type": "compound",
+    "home_friendly": true,
+    "substitute_ids": [
+      "ohp",
+      "machine-shoulder-press"
+    ]
+  },
+  {
+    "id": "machine-shoulder-press",
+    "name": "Machine Shoulder Press",
+    "muscle_group": "shoulders",
+    "equipment": "machine",
+    "difficulty": "beginner",
+    "movement_type": "compound",
+    "home_friendly": false,
+    "substitute_ids": [
+      "dumbbell-shoulder-press",
+      "ohp"
+    ]
+  },
+  {
+    "id": "arnold-press",
+    "name": "Arnold Press",
+    "muscle_group": "shoulders",
+    "equipment": "dumbbell",
+    "difficulty": "intermediate",
+    "movement_type": "compound",
+    "home_friendly": true,
+    "substitute_ids": [
+      "dumbbell-shoulder-press",
+      "machine-shoulder-press"
+    ]
+  },
+  {
+    "id": "lateral-raise",
+    "name": "Dumbbell Lateral Raise",
+    "muscle_group": "shoulders",
+    "equipment": "dumbbell",
+    "difficulty": "beginner",
+    "movement_type": "isolation",
+    "home_friendly": true,
+    "substitute_ids": [
+      "cable-lateral-raise"
+    ]
+  },
+  {
+    "id": "cable-lateral-raise",
+    "name": "Cable Lateral Raise",
+    "muscle_group": "shoulders",
+    "equipment": "cable",
+    "difficulty": "beginner",
+    "movement_type": "isolation",
+    "home_friendly": false,
+    "substitute_ids": [
+      "lateral-raise"
+    ]
+  },
+  {
+    "id": "rear-delt-fly",
+    "name": "Rear Delt Fly",
+    "muscle_group": "shoulders",
+    "equipment": "dumbbell",
+    "difficulty": "beginner",
+    "movement_type": "isolation",
+    "home_friendly": true,
+    "substitute_ids": [
+      "machine-reverse-fly",
+      "face-pull"
+    ]
+  },
+  {
+    "id": "machine-reverse-fly",
+    "name": "Machine Reverse Fly",
+    "muscle_group": "shoulders",
+    "equipment": "machine",
+    "difficulty": "beginner",
+    "movement_type": "isolation",
+    "home_friendly": false,
+    "substitute_ids": [
+      "rear-delt-fly",
+      "face-pull"
+    ]
+  },
+  {
+    "id": "face-pull",
+    "name": "Face Pull",
+    "muscle_group": "shoulders",
+    "equipment": "cable",
+    "difficulty": "beginner",
+    "movement_type": "isolation",
+    "home_friendly": false,
+    "substitute_ids": [
+      "rear-delt-fly",
+      "machine-reverse-fly"
+    ]
+  },
+  {
+    "id": "pike-push-ups",
+    "name": "Pike Push-Up",
+    "muscle_group": "shoulders",
+    "equipment": "bodyweight",
+    "difficulty": "intermediate",
+    "movement_type": "compound",
+    "home_friendly": true,
+    "substitute_ids": [
+      "dumbbell-shoulder-press",
+      "incline-push-ups"
+    ]
+  },
+  {
+    "id": "barbell-curl",
+    "name": "Barbell Curl",
+    "muscle_group": "biceps",
+    "equipment": "barbell",
+    "difficulty": "beginner",
+    "movement_type": "isolation",
+    "home_friendly": false,
+    "substitute_ids": [
+      "bicep-curl",
+      "cable-curl"
+    ]
+  },
+  {
+    "id": "bicep-curl",
+    "name": "Dumbbell Biceps Curl",
+    "muscle_group": "biceps",
+    "equipment": "dumbbell",
+    "difficulty": "beginner",
+    "movement_type": "isolation",
+    "home_friendly": true,
+    "substitute_ids": [
+      "hammer-curl",
+      "cable-curl"
+    ]
+  },
+  {
+    "id": "hammer-curl",
+    "name": "Hammer Curl",
+    "muscle_group": "biceps",
+    "equipment": "dumbbell",
+    "difficulty": "beginner",
+    "movement_type": "isolation",
+    "home_friendly": true,
+    "substitute_ids": [
+      "bicep-curl",
+      "cable-curl"
+    ]
+  },
+  {
+    "id": "incline-db-curl",
+    "name": "Incline Dumbbell Curl",
+    "muscle_group": "biceps",
+    "equipment": "dumbbell",
+    "difficulty": "intermediate",
+    "movement_type": "isolation",
+    "home_friendly": true,
+    "substitute_ids": [
+      "bicep-curl",
+      "cable-curl"
+    ]
+  },
+  {
+    "id": "cable-curl",
+    "name": "Cable Curl",
+    "muscle_group": "biceps",
+    "equipment": "cable",
+    "difficulty": "beginner",
+    "movement_type": "isolation",
+    "home_friendly": false,
+    "substitute_ids": [
+      "bicep-curl",
+      "machine-bicep-curl"
+    ]
+  },
+  {
+    "id": "machine-bicep-curl",
+    "name": "Machine Biceps Curl",
+    "muscle_group": "biceps",
+    "equipment": "machine",
+    "difficulty": "beginner",
+    "movement_type": "isolation",
+    "home_friendly": false,
+    "substitute_ids": [
+      "cable-curl",
+      "bicep-curl"
+    ]
+  },
+  {
+    "id": "tricep-pushdown",
+    "name": "Triceps Pushdown",
+    "muscle_group": "triceps",
+    "equipment": "cable",
+    "difficulty": "beginner",
+    "movement_type": "isolation",
+    "home_friendly": false,
+    "substitute_ids": [
+      "machine-triceps-extension",
+      "bench-dips"
+    ]
+  },
+  {
+    "id": "cable-overhead-tricep-extension",
+    "name": "Cable Overhead Triceps Extension",
+    "muscle_group": "triceps",
+    "equipment": "cable",
+    "difficulty": "beginner",
+    "movement_type": "isolation",
+    "home_friendly": false,
+    "substitute_ids": [
+      "dumbbell-tricep-extension",
+      "tricep-pushdown"
+    ]
+  },
+  {
+    "id": "skull-crusher",
+    "name": "Skull Crusher",
+    "muscle_group": "triceps",
+    "equipment": "barbell",
+    "difficulty": "intermediate",
+    "movement_type": "isolation",
+    "home_friendly": false,
+    "substitute_ids": [
+      "db-skull-crusher",
+      "tricep-pushdown"
+    ]
+  },
+  {
+    "id": "db-skull-crusher",
+    "name": "Dumbbell Skull Crusher",
+    "muscle_group": "triceps",
+    "equipment": "dumbbell",
+    "difficulty": "intermediate",
+    "movement_type": "isolation",
+    "home_friendly": true,
+    "substitute_ids": [
+      "skull-crusher",
+      "dumbbell-tricep-extension"
+    ]
+  },
+  {
+    "id": "dumbbell-tricep-extension",
+    "name": "Dumbbell Overhead Triceps Extension",
+    "muscle_group": "triceps",
+    "equipment": "dumbbell",
+    "difficulty": "beginner",
+    "movement_type": "isolation",
+    "home_friendly": true,
+    "substitute_ids": [
+      "cable-overhead-tricep-extension",
+      "db-skull-crusher"
+    ]
+  },
+  {
+    "id": "close-grip-bench-press",
+    "name": "Close-Grip Bench Press",
+    "muscle_group": "triceps",
+    "equipment": "barbell",
+    "difficulty": "intermediate",
+    "movement_type": "compound",
+    "home_friendly": false,
+    "substitute_ids": [
+      "dips",
+      "diamond-push-ups"
+    ]
+  },
+  {
+    "id": "diamond-push-ups",
+    "name": "Diamond Push-Up",
+    "muscle_group": "triceps",
+    "equipment": "bodyweight",
+    "difficulty": "intermediate",
+    "movement_type": "compound",
+    "home_friendly": true,
+    "substitute_ids": [
+      "bench-dips",
+      "close-grip-bench-press"
+    ]
+  },
+  {
+    "id": "bench-dips",
+    "name": "Bench Dips",
+    "muscle_group": "triceps",
+    "equipment": "bodyweight",
+    "difficulty": "beginner",
+    "movement_type": "compound",
+    "home_friendly": true,
+    "substitute_ids": [
+      "tricep-pushdown",
+      "diamond-push-ups"
+    ]
+  },
+  {
+    "id": "machine-triceps-extension",
+    "name": "Machine Triceps Extension",
+    "muscle_group": "triceps",
+    "equipment": "machine",
+    "difficulty": "beginner",
+    "movement_type": "isolation",
+    "home_friendly": false,
+    "substitute_ids": [
+      "tricep-pushdown",
+      "dumbbell-tricep-extension"
+    ]
+  },
+  {
+    "id": "squat",
+    "name": "Barbell Back Squat",
+    "muscle_group": "quads",
+    "equipment": "barbell",
+    "difficulty": "intermediate",
+    "movement_type": "compound",
+    "home_friendly": false,
+    "substitute_ids": [
+      "goblet-squat",
+      "leg-press",
+      "smith-machine-squat"
+    ]
+  },
+  {
+    "id": "goblet-squat",
+    "name": "Goblet Squat",
+    "muscle_group": "quads",
+    "equipment": "dumbbell",
+    "difficulty": "beginner",
+    "movement_type": "compound",
+    "home_friendly": true,
+    "substitute_ids": [
+      "bodyweight-squat",
+      "leg-press"
+    ]
+  },
+  {
+    "id": "bodyweight-squat",
+    "name": "Bodyweight Squat",
+    "muscle_group": "quads",
+    "equipment": "bodyweight",
+    "difficulty": "beginner",
+    "movement_type": "compound",
+    "home_friendly": true,
+    "substitute_ids": [
+      "goblet-squat",
+      "split-squat"
+    ]
+  },
+  {
+    "id": "leg-press",
+    "name": "Leg Press",
+    "muscle_group": "quads",
+    "equipment": "machine",
+    "difficulty": "beginner",
+    "movement_type": "compound",
+    "home_friendly": false,
+    "substitute_ids": [
+      "hack-squat",
+      "goblet-squat"
+    ]
+  },
+  {
+    "id": "hack-squat",
+    "name": "Hack Squat",
+    "muscle_group": "quads",
+    "equipment": "machine",
+    "difficulty": "intermediate",
+    "movement_type": "compound",
+    "home_friendly": false,
+    "substitute_ids": [
+      "leg-press",
+      "squat"
+    ]
+  },
+  {
+    "id": "smith-machine-squat",
+    "name": "Smith Machine Squat",
+    "muscle_group": "quads",
+    "equipment": "machine",
+    "difficulty": "beginner",
+    "movement_type": "compound",
+    "home_friendly": false,
+    "substitute_ids": [
+      "squat",
+      "leg-press"
+    ]
+  },
+  {
+    "id": "bulgarian-split-squat",
+    "name": "Bulgarian Split Squat",
+    "muscle_group": "quads",
+    "equipment": "dumbbell",
+    "difficulty": "intermediate",
+    "movement_type": "compound",
+    "home_friendly": true,
+    "substitute_ids": [
+      "db-lunge",
+      "split-squat"
+    ]
+  },
+  {
+    "id": "db-lunge",
+    "name": "Dumbbell Lunge",
+    "muscle_group": "quads",
+    "equipment": "dumbbell",
+    "difficulty": "beginner",
+    "movement_type": "compound",
+    "home_friendly": true,
+    "substitute_ids": [
+      "bulgarian-split-squat",
+      "step-ups"
+    ]
+  },
+  {
+    "id": "leg-extension",
+    "name": "Leg Extension",
+    "muscle_group": "quads",
+    "equipment": "machine",
+    "difficulty": "beginner",
+    "movement_type": "isolation",
+    "home_friendly": false,
+    "substitute_ids": [
+      "leg-press",
+      "split-squat"
+    ]
+  },
+  {
+    "id": "split-squat",
+    "name": "Split Squat",
+    "muscle_group": "quads",
+    "equipment": "bodyweight",
+    "difficulty": "beginner",
+    "movement_type": "compound",
+    "home_friendly": true,
+    "substitute_ids": [
+      "db-lunge",
+      "bodyweight-squat"
+    ]
+  },
+  {
+    "id": "step-ups",
+    "name": "Step-Up",
+    "muscle_group": "quads",
+    "equipment": "dumbbell",
+    "difficulty": "beginner",
+    "movement_type": "compound",
+    "home_friendly": true,
+    "substitute_ids": [
+      "db-lunge",
+      "split-squat"
+    ]
+  },
+  {
+    "id": "romanian-deadlift",
+    "name": "Romanian Deadlift",
+    "muscle_group": "hamstrings",
+    "equipment": "barbell",
+    "difficulty": "intermediate",
+    "movement_type": "compound",
+    "home_friendly": false,
+    "substitute_ids": [
+      "dumbbell-romanian-deadlift",
+      "leg-curl"
+    ]
+  },
+  {
+    "id": "dumbbell-romanian-deadlift",
+    "name": "Dumbbell Romanian Deadlift",
+    "muscle_group": "hamstrings",
+    "equipment": "dumbbell",
+    "difficulty": "beginner",
+    "movement_type": "compound",
+    "home_friendly": true,
+    "substitute_ids": [
+      "romanian-deadlift",
+      "seated-leg-curl"
+    ]
+  },
+  {
+    "id": "seated-leg-curl",
+    "name": "Seated Leg Curl",
+    "muscle_group": "hamstrings",
+    "equipment": "machine",
+    "difficulty": "beginner",
+    "movement_type": "isolation",
+    "home_friendly": false,
+    "substitute_ids": [
+      "leg-curl",
+      "ball-leg-curl"
+    ]
+  },
+  {
+    "id": "leg-curl",
+    "name": "Lying Leg Curl",
+    "muscle_group": "hamstrings",
+    "equipment": "machine",
+    "difficulty": "beginner",
+    "movement_type": "isolation",
+    "home_friendly": false,
+    "substitute_ids": [
+      "seated-leg-curl",
+      "ball-leg-curl"
+    ]
+  },
+  {
+    "id": "ball-leg-curl",
+    "name": "Stability Ball Leg Curl",
+    "muscle_group": "hamstrings",
+    "equipment": "stability ball",
+    "difficulty": "intermediate",
+    "movement_type": "isolation",
+    "home_friendly": true,
+    "substitute_ids": [
+      "leg-curl",
+      "dumbbell-romanian-deadlift"
+    ]
+  },
+  {
+    "id": "nordic-hamstring-curl",
+    "name": "Nordic Hamstring Curl",
+    "muscle_group": "hamstrings",
+    "equipment": "bodyweight",
+    "difficulty": "advanced",
+    "movement_type": "isolation",
+    "home_friendly": true,
+    "substitute_ids": [
+      "leg-curl",
+      "ball-leg-curl"
+    ]
+  },
+  {
+    "id": "hip-thrust",
+    "name": "Barbell Hip Thrust",
+    "muscle_group": "glutes",
+    "equipment": "barbell",
+    "difficulty": "intermediate",
+    "movement_type": "compound",
+    "home_friendly": false,
+    "substitute_ids": [
+      "dumbbell-hip-thrust",
+      "glute-bridge"
+    ]
+  },
+  {
+    "id": "dumbbell-hip-thrust",
+    "name": "Dumbbell Hip Thrust",
+    "muscle_group": "glutes",
+    "equipment": "dumbbell",
+    "difficulty": "beginner",
+    "movement_type": "compound",
+    "home_friendly": true,
+    "substitute_ids": [
+      "hip-thrust",
+      "glute-bridge"
+    ]
+  },
+  {
+    "id": "glute-bridge",
+    "name": "Glute Bridge",
+    "muscle_group": "glutes",
+    "equipment": "bodyweight",
+    "difficulty": "beginner",
+    "movement_type": "compound",
+    "home_friendly": true,
+    "substitute_ids": [
+      "dumbbell-hip-thrust",
+      "hip-thrust"
+    ]
+  },
+  {
+    "id": "cable-kickback",
+    "name": "Cable Glute Kickback",
+    "muscle_group": "glutes",
+    "equipment": "cable",
+    "difficulty": "beginner",
+    "movement_type": "isolation",
+    "home_friendly": false,
+    "substitute_ids": [
+      "hip-thrust",
+      "glute-bridge"
+    ]
+  },
+  {
+    "id": "hip-abduction",
+    "name": "Hip Abduction Machine",
+    "muscle_group": "glutes",
+    "equipment": "machine",
+    "difficulty": "beginner",
+    "movement_type": "isolation",
+    "home_friendly": false,
+    "substitute_ids": [
+      "banded-lateral-walk"
+    ]
+  },
+  {
+    "id": "banded-lateral-walk",
+    "name": "Banded Lateral Walk",
+    "muscle_group": "glutes",
+    "equipment": "band",
+    "difficulty": "beginner",
+    "movement_type": "isolation",
+    "home_friendly": true,
+    "substitute_ids": [
+      "hip-abduction"
+    ]
+  },
+  {
+    "id": "standing-calf-raise",
+    "name": "Standing Calf Raise",
+    "muscle_group": "calves",
+    "equipment": "machine",
+    "difficulty": "beginner",
+    "movement_type": "isolation",
+    "home_friendly": false,
+    "substitute_ids": [
+      "seated-calf-raise",
+      "bodyweight-calf-raise"
+    ]
+  },
+  {
+    "id": "seated-calf-raise",
+    "name": "Seated Calf Raise",
+    "muscle_group": "calves",
+    "equipment": "machine",
+    "difficulty": "beginner",
+    "movement_type": "isolation",
+    "home_friendly": false,
+    "substitute_ids": [
+      "standing-calf-raise",
+      "bodyweight-calf-raise"
+    ]
+  },
+  {
+    "id": "bodyweight-calf-raise",
+    "name": "Bodyweight Calf Raise",
+    "muscle_group": "calves",
+    "equipment": "bodyweight",
+    "difficulty": "beginner",
+    "movement_type": "isolation",
+    "home_friendly": true,
+    "substitute_ids": [
+      "standing-calf-raise",
+      "seated-calf-raise"
+    ]
+  },
+  {
+    "id": "plank-main",
+    "name": "Plank",
+    "muscle_group": "core",
+    "equipment": "bodyweight",
+    "difficulty": "beginner",
+    "movement_type": "isolation",
+    "home_friendly": true,
+    "substitute_ids": [
+      "dead-bug",
+      "bird-dog"
+    ]
+  },
+  {
+    "id": "crunches",
+    "name": "Crunch",
+    "muscle_group": "core",
+    "equipment": "bodyweight",
+    "difficulty": "beginner",
+    "movement_type": "isolation",
+    "home_friendly": true,
+    "substitute_ids": [
+      "cable-crunch",
+      "dead-bug"
+    ]
+  },
+  {
+    "id": "cable-crunch",
+    "name": "Cable Crunch",
+    "muscle_group": "core",
+    "equipment": "cable",
+    "difficulty": "beginner",
+    "movement_type": "isolation",
+    "home_friendly": false,
+    "substitute_ids": [
+      "crunches",
+      "hanging-knee-raise"
+    ]
+  },
+  {
+    "id": "hanging-knee-raise",
+    "name": "Hanging Knee Raise",
+    "muscle_group": "core",
+    "equipment": "bodyweight",
+    "difficulty": "intermediate",
+    "movement_type": "isolation",
+    "home_friendly": false,
+    "substitute_ids": [
+      "crunches",
+      "hanging-leg-raise"
+    ]
+  },
+  {
+    "id": "hanging-leg-raise",
+    "name": "Hanging Leg Raise",
+    "muscle_group": "core",
+    "equipment": "bodyweight",
+    "difficulty": "advanced",
+    "movement_type": "isolation",
+    "home_friendly": false,
+    "substitute_ids": [
+      "hanging-knee-raise",
+      "cable-crunch"
+    ]
+  },
+  {
+    "id": "ab-wheel-rollout",
+    "name": "Ab Wheel Rollout",
+    "muscle_group": "core",
+    "equipment": "ab wheel",
+    "difficulty": "advanced",
+    "movement_type": "compound",
+    "home_friendly": true,
+    "substitute_ids": [
+      "plank-main",
+      "cable-crunch"
+    ]
+  },
+  {
+    "id": "dead-bug",
+    "name": "Dead Bug",
+    "muscle_group": "core",
+    "equipment": "bodyweight",
+    "difficulty": "beginner",
+    "movement_type": "isolation",
+    "home_friendly": true,
+    "substitute_ids": [
+      "plank-main",
+      "bird-dog"
+    ]
+  },
+  {
+    "id": "russian-twist",
+    "name": "Russian Twist",
+    "muscle_group": "core",
+    "equipment": "bodyweight",
+    "difficulty": "beginner",
+    "movement_type": "isolation",
+    "home_friendly": true,
+    "substitute_ids": [
+      "crunches",
+      "dead-bug"
+    ]
+  },
+  {
+    "id": "bird-dog",
+    "name": "Bird Dog",
+    "muscle_group": "core",
+    "equipment": "bodyweight",
+    "difficulty": "beginner",
+    "movement_type": "isolation",
+    "home_friendly": true,
+    "substitute_ids": [
+      "dead-bug",
+      "plank-main"
+    ]
+  }
+]

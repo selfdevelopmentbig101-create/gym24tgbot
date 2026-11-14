@@ -2,8 +2,9 @@
 even in the middle of onboarding."""
 from aiogram import Router
 
-from handlers import common, onboarding, profile
+from handlers import cards, common, library, onboarding, plan, profile
 
 
 def get_routers() -> list[Router]:
-    return [common.router, profile.router, onboarding.router]
+    return [common.router, profile.router, plan.router, library.router, cards.router,
+            onboarding.router]

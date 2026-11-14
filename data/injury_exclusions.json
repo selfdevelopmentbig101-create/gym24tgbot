@@ -1,0 +1,22 @@
+{
+  "_comment": "Exercises left out of plans and substitutes for users who report each injury. Edit freely; IDs must exist in core_exercises.json (checked at import).",
+  "shoulder": [
+    "ohp", "arnold-press", "pike-push-ups", "dips", "bench-dips",
+    "skull-crusher", "cable-overhead-tricep-extension", "dumbbell-tricep-extension"
+  ],
+  "elbow_wrist": [
+    "skull-crusher", "db-skull-crusher", "close-grip-bench-press", "barbell-curl",
+    "dips", "bench-dips", "diamond-push-ups"
+  ],
+  "lower_back": [
+    "deadlift", "hex-bar-deadlift", "barbell-row", "t-bar-row", "romanian-deadlift",
+    "squat", "back-extension", "ab-wheel-rollout", "russian-twist", "hanging-leg-raise"
+  ],
+  "knee": [
+    "squat", "hack-squat", "bulgarian-split-squat", "db-lunge", "split-squat",
+    "step-ups", "leg-extension"
+  ],
+  "hip": [
+    "deadlift", "squat", "bulgarian-split-squat", "db-lunge", "hanging-leg-raise"
+  ]
+}

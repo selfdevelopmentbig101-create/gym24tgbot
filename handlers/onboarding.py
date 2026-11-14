@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database.enums import Injury
 from database.models import Profile
 from keyboards.profile import NavCB, ProfileCB, injuries_keyboard, profile_keyboard, step_keyboard
-from services import users
+from services import plans, users
 from services.validation import ValidationError
 from utils.formatting import format_field_value, format_profile_with_targets
 from utils.texts import t
@@ -108,8 +108,11 @@ async def start_edit(event: Message | CallbackQuery, state: FSMContext,
     await ask_step(event, state, step)
 
 
-async def show_profile(event: Message | CallbackQuery, profile: Profile, header: str = "") -> None:
+async def show_profile(event: Message | CallbackQuery, profile: Profile, header: str = "",
+                       footer: str = "") -> None:
     text = (header + "\n\n" if header else "") + format_profile_with_targets(profile)
+    if footer:
+        text += "\n\n" + footer
     await send_or_edit(event, text, profile_keyboard())
 
 
@@ -127,9 +130,17 @@ async def advance(event: Message | CallbackQuery, state: FSMContext,
         if user is None or user.profile is None:
             await send_or_edit(event, t("need_profile"))
             return
+        old_value = getattr(user.profile, step)
         profile = await users.update_profile_field(session, user, step, value)
         logger.info("Profile field '%s' updated", step)
-        await show_profile(event, profile, t("profile_updated"))
+
+        footer = ""
+        # Equipment, level, days or injuries changed: the old plan no longer fits.
+        if step in plans.PLAN_FIELDS and getattr(profile, step) != old_value \
+                and await plans.get_plan(session, user) is not None:
+            if await plans.generate_for_user(session, user) is not None:
+                footer = t("plan_rebuilt")
+        await show_profile(event, profile, t("profile_updated"), footer)
         return
 
     answers = dict(data.get("answers", {}))
@@ -141,12 +152,13 @@ async def advance(event: Message | CallbackQuery, state: FSMContext,
         await ask_step(event, state, STEPS[index + 1])
         return
 
-    # Last step: save everything in one go.
+    # Last step: save everything in one go, then build the first plan.
     user = await users.get_or_create_user(session, telegram_id, event.from_user.language_code)
     profile = await users.save_profile(session, user, answers)
     await state.clear()
     logger.info("Onboarding completed")
-    await show_profile(event, profile, t("onboarding_done"))
+    plan = await plans.generate_for_user(session, user)
+    await show_profile(event, profile, t("onboarding_done"), t("plan_ready") if plan else "")
 
 
 # ---------- Button answers ----------

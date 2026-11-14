@@ -16,11 +16,13 @@ EN: dict[str, str] = {
         "<b>Commands</b>\n"
         "/start — start or resume setup\n"
         "/profile — your profile and daily calorie/protein targets\n"
+        "/plan — your workout plan\n"
+        "/exercises — exercise library\n"
         "/settings — edit profile, disclaimer, delete data\n"
         "/about — about this bot and credits\n"
         "/deleteme — permanently delete all your data\n"
         "/cancel — stop the current setup step\n\n"
-        "Workout plans, logging and progress tracking are coming soon."
+        "Workout logging and progress tracking are coming soon."
     ),
     "about": (
         "<b>Muscle Gain Bot</b>\n"
@@ -167,6 +169,79 @@ EN: dict[str, str] = {
     "delete_done": "✅ All your data has been deleted. Send /start if you ever want to come back.",
     "delete_nothing": "We don't have any data stored for you.",
     "delete_kept": "👍 Nothing was deleted.",
+
+    # ----- Exercise library and cards -----
+    "library_pick_group": "📚 <b>Exercise library</b>\nPick a muscle group:",
+    "library_pick_group_filtered": "📚 <b>Exercise library</b>\n"
+                                   "Showing exercises that fit your equipment and level. Pick a muscle group:",
+    "library_empty": "No exercises in this group fit your equipment and level.",
+    "no_exercises_loaded": "The exercise list isn't loaded yet. Ask the admin to run import_exercises.py.",
+    "card_library_position": "📚 {pos} of {total}",
+    "card_plan_position": "📋 {day} · exercise {pos} of {total}",
+    "card_prescription": "<b>{sets} × {reps}</b> · rest {rest}",
+    "card_form_tips": "📝 <b>Form tips</b>\n{tips}",
+    "card_form_tips_missing": "📝 <i>Form tips coming soon.</i>",
+    "btn_next": "⏭ Next",
+    "btn_substitute": "🔄 Substitute",
+    "btn_log_set": "✍️ Log set",
+    "btn_back_to_groups": "⬅️ Muscle groups",
+    "btn_back_to_plan": "⬅️ Plan",
+    "no_substitute": "No substitute fits your equipment, level and injuries.",
+    "substituted": "Swapped in your plan ✅",
+    "log_set_soon": "Set logging is coming in the next update.",
+    "reps_range": "{low}–{high}",
+    "seconds_range": "{low}–{high} s",
+    "rest_seconds": "{seconds} s",
+    "rest_minutes": "{minutes} min",
+
+    # ----- Plan -----
+    "plan_header": "🗓 <b>Your plan: {split}</b> · {days} days a week",
+    "plan_day_header": "<b>Day {n} · {name}</b>",
+    "plan_line": "• {name} — {sets} × {reps}",
+    "plan_footer": "Rest 2–3 min between sets of big lifts, 60–90 s for smaller ones. "
+                   "Tap a day to go through its exercises.",
+    "plan_empty": "Couldn't build a plan: the exercise list isn't loaded yet.",
+    "plan_ready": "🗓 Your training plan is ready: /plan",
+    "plan_rebuilt": "🗓 Your plan was rebuilt for the new settings: /plan",
+    "plan_regenerated": "🔁 New plan generated.",
+    "plan_changed": "Your plan has changed. Open /plan again.",
+    "btn_new_plan": "🔁 New plan",
+    "btn_day": "{n} · {name}",
+
+    "split_full_body": "Full body",
+    "split_upper_lower": "Upper / Lower",
+    "split_upper_lower_ppl": "Upper / Lower + Push / Pull / Legs",
+    "split_ppl": "Push / Pull / Legs",
+    "day_full_body": "Full Body",
+    "day_upper": "Upper",
+    "day_lower": "Lower",
+    "day_push": "Push",
+    "day_pull": "Pull",
+    "day_legs": "Legs",
+
+    "muscle_chest": "Chest",
+    "muscle_back": "Back",
+    "muscle_shoulders": "Shoulders",
+    "muscle_biceps": "Biceps",
+    "muscle_triceps": "Triceps",
+    "muscle_quads": "Quads",
+    "muscle_hamstrings": "Hamstrings",
+    "muscle_glutes": "Glutes",
+    "muscle_calves": "Calves",
+    "muscle_core": "Core",
+    "gear_barbell": "Barbell",
+    "gear_dumbbell": "Dumbbell",
+    "gear_machine": "Machine",
+    "gear_cable": "Cable",
+    "gear_bodyweight": "Bodyweight",
+    "gear_band": "Resistance band",
+    "gear_ab_wheel": "Ab wheel",
+    "gear_stability_ball": "Stability ball",
+    "level_beginner": "Beginner",
+    "level_intermediate": "Intermediate",
+    "level_advanced": "Advanced",
+    "move_compound": "Compound",
+    "move_isolation": "Isolation",
 }
 
 # Phase 6: add more language dicts here (or load them from files).
@@ -179,3 +254,16 @@ def t(key: str, lang: str = DEFAULT_LANGUAGE, **kwargs) -> str:
     texts = LANGUAGES.get(lang, EN)
     template = texts.get(key) or EN.get(key) or key
     return template.format(**kwargs) if kwargs else template
+
+
+def label(prefix: str, value: str, lang: str = DEFAULT_LANGUAGE) -> str:
+    """
+    Text for a data value, e.g. label("muscle", "quads") -> "Quads".
+    Unknown values (a new muscle group in the JSON) fall back to a tidied
+    version of the value itself, so new data never breaks the bot.
+    """
+    key = f"{prefix}_{value.replace(' ', '_').replace('-', '_')}"
+    texts = LANGUAGES.get(lang, EN)
+    if key in texts or key in EN:
+        return t(key, lang)
+    return value.replace("_", " ").replace("-", " ").capitalize()
