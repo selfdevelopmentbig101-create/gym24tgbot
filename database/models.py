@@ -54,6 +54,9 @@ class User(Base):
     disclaimer_accepted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # Premium (Telegram Stars). Active while premium_until is in the future.
+    premium_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    trial_used: Mapped[bool] = mapped_column(Boolean, default=False)
 
     profile: Mapped["Profile | None"] = relationship(
         back_populates="user",
@@ -333,3 +336,18 @@ class Achievement(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     code: Mapped[str] = mapped_column(String(30))
     unlocked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class Payment(Base):
+    """A Telegram Stars payment. charge_id is needed to issue refunds."""
+
+    __tablename__ = "payments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    plan: Mapped[str] = mapped_column(String(10))   # month | year
+    stars: Mapped[int] = mapped_column(Integer)
+    days: Mapped[int] = mapped_column(Integer)
+    charge_id: Mapped[str] = mapped_column(String(100), unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    refunded: Mapped[bool] = mapped_column(Boolean, default=False)

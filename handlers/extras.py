@@ -13,7 +13,7 @@ from handlers.onboarding import send_or_edit
 from keyboards.extras import AdjCB, calories_keyboard, deload_keyboard
 from services import achievements, adjust, users
 from services.achievements import ACHIEVEMENTS, AchievementDef, Stats
-from utils.texts import t
+from utils.texts import fmt_day, t
 
 router = Router(name="extras")
 
@@ -88,7 +88,7 @@ async def cmd_achievements(message: Message, session: AsyncSession) -> None:
     lines.append("")
     for a in ACHIEVEMENTS:
         if a.code in have:
-            when = have[a.code].unlocked_at.strftime("%d %b %Y")
+            when = fmt_day(have[a.code].unlocked_at.date(), with_year=True)
             lines.append(t("ach_line_done", name=achievement_name(a), date=when))
         else:
             lines.append(t("ach_line_locked", name=t(f"ach_{a.code}"),
@@ -108,7 +108,7 @@ async def on_adjust(callback: CallbackQuery, callback_data: AdjCB, session: Asyn
     action = callback_data.a
     if action == "deload_yes":
         until = await adjust.start_deload(session, user)
-        text = t("deload_started", until=until.strftime("%d %b"))
+        text = t("deload_started", until=fmt_day(until))
     elif action == "deload_no":
         await adjust.dismiss_deload(session, user)
         text = t("adjust_dismissed")

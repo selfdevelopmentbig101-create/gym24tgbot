@@ -12,9 +12,12 @@ from typing import Any, Awaitable, Callable
 
 from aiogram import BaseMiddleware
 from aiogram.types import CallbackQuery, Message, TelegramObject
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from utils.texts import t
+from database.models import User
+
+from utils.texts import set_language, t
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +32,23 @@ class DbSessionMiddleware(BaseMiddleware):
         async with self.session_factory() as session:
             data["session"] = session
             return await handler(event, data)
+
+
+class LanguageMiddleware(BaseMiddleware):
+    """
+    Pick the language for this update: the user's saved choice, otherwise
+    their Telegram app language. Must run after DbSessionMiddleware.
+    """
+
+    async def __call__(self, handler: Handler, event: TelegramObject, data: dict[str, Any]) -> Any:
+        tg_user = data.get("event_from_user")
+        code = None
+        if tg_user is not None:
+            code = await data["session"].scalar(
+                select(User.language_code).where(User.telegram_id == tg_user.id))
+            code = code or tg_user.language_code
+        set_language(code)
+        return await handler(event, data)
 
 
 class RateLimitMiddleware(BaseMiddleware):
