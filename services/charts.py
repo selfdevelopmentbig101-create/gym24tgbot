@@ -5,13 +5,32 @@ Rendering is CPU work, so callers run these functions in a thread
 (asyncio.to_thread) to keep the bot responsive.
 """
 import io
+import logging
 from datetime import date, datetime
 
-import matplotlib
+logger = logging.getLogger(__name__)
 
-matplotlib.use("Agg")  # no screen needed; must be set before importing pyplot
-import matplotlib.dates as mdates  # noqa: E402
-import matplotlib.pyplot as plt  # noqa: E402
+try:
+    import matplotlib
+
+    matplotlib.use("Agg")  # no screen needed; must be set before importing pyplot
+    import matplotlib.dates as mdates
+    import matplotlib.pyplot as plt
+except ImportError as error:
+    # matplotlib (and Pillow, which it uses) ship native DLLs that Windows
+    # Smart App Control can block. The bot still runs without charts.
+    mdates = plt = None
+    logger.warning("matplotlib unavailable (%s): charts are disabled", error)
+
+
+class ChartsUnavailable(RuntimeError):
+    """Raised when the chart library couldn't be loaded."""
+
+
+def _require() -> None:
+    if plt is None:
+        raise ChartsUnavailable()
+
 
 COLORS = ["#2b6cb0", "#dd6b20", "#38a169", "#805ad5", "#d53f8c"]
 
@@ -42,6 +61,7 @@ def line_chart(title: str, ylabel: str,
                series: list[tuple[str, list[datetime | date], list[float]]],
                show_average: bool = False) -> bytes:
     """One or more lines. With show_average, a moving average of the last 7 points is added."""
+    _require()
     fig, ax = plt.subplots(figsize=(8, 4.5))
     for index, (label, xs, ys) in enumerate(series):
         color = COLORS[index % len(COLORS)]
@@ -55,6 +75,7 @@ def line_chart(title: str, ylabel: str,
 
 
 def bar_chart(title: str, ylabel: str, xs: list[date], ys: list[float]) -> bytes:
+    _require()
     fig, ax = plt.subplots(figsize=(8, 4.5))
     ax.bar(xs, ys, color=COLORS[0], width=0.7)
     return _finish(fig, ax, title, ylabel)

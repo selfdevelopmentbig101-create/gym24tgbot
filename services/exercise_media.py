@@ -11,14 +11,22 @@ Animations are built as small looping GIFs: hold the start position, fade to
 the peak, hold, fade back. Telegram converts GIFs to looping MP4 itself, so no
 ffmpeg is needed. Built files are cached in assets/cache/.
 """
+from __future__ import annotations
+
 import hashlib
 import logging
 from dataclasses import dataclass
 from pathlib import Path
 
-from PIL import Image
-
 logger = logging.getLogger(__name__)
+
+try:
+    from PIL import Image
+except ImportError as error:
+    # Pillow ships native DLLs, which Windows Smart App Control can block.
+    # The bot still runs; exercise cards are shown as text only.
+    Image = None
+    logger.warning("Pillow unavailable (%s): exercise images are disabled", error)
 
 ROOT = Path(__file__).resolve().parent.parent
 IMAGE_DIR = ROOT / "assets" / "exercises"
@@ -120,7 +128,7 @@ def build_media(exercise_id: str, image_dir: Path | None = None,
     """Return a ready-to-upload file for this exercise, building it if needed."""
     images = find_images(exercise_id, image_dir)
     cache_dir = cache_dir or CACHE_DIR
-    if images.kind is None:
+    if images.kind is None or Image is None:
         return None
     cache_dir.mkdir(parents=True, exist_ok=True)
 

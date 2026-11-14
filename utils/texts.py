@@ -362,6 +362,7 @@ EN: dict[str, str] = {
     "measure_hips": "Hips",
     "strength_pick": "💪 <b>Strength chart</b>: pick an exercise:",
     "strength_none": "No weighted sets logged yet. Log a workout first: /workout",
+    "charts_unavailable": "Charts are unavailable on this computer: the chart library couldn't be loaded.",
     "chart_no_data": "Not enough data for this chart yet. Keep logging!",
     "chart_weight_title": "Body weight (last {days} days)",
     "chart_strength_title": "{name}: estimated 1RM (last {days} days)",

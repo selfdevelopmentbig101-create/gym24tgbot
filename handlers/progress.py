@@ -373,7 +373,11 @@ async def on_chart(callback: CallbackQuery, callback_data: ProgCB, session: Asyn
     if user is None:
         return
     days = callback_data.r if callback_data.r in (7, 30) else 30
-    png = await build_chart(session, user, callback_data.v, days)
+    try:
+        png = await build_chart(session, user, callback_data.v, days)
+    except charts.ChartsUnavailable:
+        await callback.answer(t("charts_unavailable"), show_alert=True)
+        return
     if png is None:
         await callback.answer(t("chart_no_data"), show_alert=True)
         return

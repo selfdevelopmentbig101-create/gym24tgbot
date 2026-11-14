@@ -86,6 +86,18 @@ python bot.py
 The SQLite database (`gymbot.db`) is created automatically, and the exercises
 are imported from `data/core_exercises.json` on every start (safe to repeat).
 
+### Windows: "DLL load failed ... blocked by Application Control policy"
+
+Windows 11 **Smart App Control** can block the native DLLs of Pillow and
+matplotlib. The bot still starts and works; it just shows exercise cards as text
+and replies "charts unavailable". To get images and charts back, pick one:
+
+- Run the bot in **WSL** (`wsl --install`, then follow the setup above inside
+  Ubuntu), or on a Linux server/VPS. This is the recommended way to host a bot anyway.
+- Or turn Smart App Control off: Windows Security -> App & browser control ->
+  Smart App Control settings -> Off. Note that Windows can't turn it back on
+  without a reset, so prefer WSL if you want to keep it.
+
 > **Upgrading from an earlier phase:** delete `gymbot.db` once. New tables and
 > columns were added, and there are no database migrations yet (planned before launch).
 
