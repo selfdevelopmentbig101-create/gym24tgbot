@@ -25,7 +25,7 @@ from services.foods import FoodDataError, all_foods
 from services.rest_timer import rest_timers
 from services.scheduler import ReminderScheduler, set_scheduler
 from utils.logging_setup import setup_logging
-from utils.middlewares import DbSessionMiddleware, RateLimitMiddleware
+from utils.middlewares import DbSessionMiddleware, LanguageMiddleware, RateLimitMiddleware
 from utils.texts import t
 
 logger = logging.getLogger(__name__)
@@ -69,6 +69,7 @@ def create_dispatcher(session_factory: async_sessionmaker,
     dp = Dispatcher(storage=MemoryStorage())
 
     dp.update.outer_middleware(DbSessionMiddleware(session_factory))
+    dp.update.outer_middleware(LanguageMiddleware())  # needs the session, so registered second
     rate_limiter = RateLimitMiddleware(rate_limit_max, rate_limit_window)
     dp.message.outer_middleware(rate_limiter)
     dp.callback_query.outer_middleware(rate_limiter)
