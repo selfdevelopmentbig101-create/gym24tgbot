@@ -13,7 +13,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.models import Exercise, SetLog, User, WorkoutPlan, WorkoutSession, utcnow  # noqa: F401
-from services import records
+from services import adjust, records, reminders
 from services.exercises import UserFilter, load_catalog, pick_substitute
 from services.plan_generator import prescription
 from services.progression import SetResult, Suggestion, suggest
@@ -124,7 +124,15 @@ async def suggestion_for(session: AsyncSession, user: User, ws: WorkoutSession,
     hint = suggest(previous, rep_min=item["rep_min"], rep_max=item["rep_max"],
                    planned_sets=item["sets"], equipment=exercise.equipment,
                    timed=item["timed"], before_previous=past[1] if len(past) > 1 else None)
+    if previous and not item["timed"] and await in_deload(session, user):
+        weight = adjust.deload_weight(max(s.weight_kg for s in previous))
+        hint = Suggestion("deload", weight, item["rep_min"], {"weight": weight, "low": item["rep_min"]})
     return hint, previous
+
+
+async def in_deload(session: AsyncSession, user: User) -> bool:
+    today = reminders.local_now(await reminders.get_settings(session, user)).date()
+    return user.profile is not None and adjust.deload_active(user.profile, today)
 
 
 async def next_day_index(session: AsyncSession, user: User, plan: WorkoutPlan) -> int:
@@ -149,9 +157,12 @@ async def start(session: AsyncSession, user: User, plan: WorkoutPlan, day_index:
         await finish(session, user, active)
 
     day = plan.days[day_index]
+    deload = await in_deload(session, user)
     items = [
-        {"exercise_id": e.exercise_id, "sets": e.sets, "rep_min": e.rep_min,
-         "rep_max": e.rep_max, "timed": e.timed, "rest_seconds": e.rest_seconds}
+        {"exercise_id": e.exercise_id,
+         "sets": adjust.deload_sets(e.sets) if deload else e.sets,
+         "rep_min": e.rep_min, "rep_max": e.rep_max, "timed": e.timed,
+         "rest_seconds": e.rest_seconds}
         for e in day.exercises
     ]
     ws = WorkoutSession(user_id=user.id, day_index=day_index, name_key=day.name_key,
@@ -287,14 +298,16 @@ async def finish(session: AsyncSession, user: User, ws: WorkoutSession) -> Worko
         volume_kg=round(sum(s.weight_kg * s.reps for s in ws.sets
                             if not _is_timed(ws, s.exercise_id)), 1),
     )
+    deload = await in_deload(session, user)
     for item in ws.items:
         done = sets_for(ws, item["exercise_id"])
         if not done:
             continue
         exercise = await session.get(Exercise, item["exercise_id"])
-        hint = suggest([SetResult(s.weight_kg, s.reps) for s in done], rep_min=item["rep_min"],
-                       rep_max=item["rep_max"], planned_sets=item["sets"],
-                       equipment=exercise.equipment, timed=item["timed"])
+        hint = None if deload else suggest(
+            [SetResult(s.weight_kg, s.reps) for s in done], rep_min=item["rep_min"],
+            rep_max=item["rep_max"], planned_sets=item["sets"],
+            equipment=exercise.equipment, timed=item["timed"])
         summary.exercises.append(ExerciseSummary(exercise, done, hint, item["timed"]))
     logger.info("Workout finished (%s sets)", summary.total_sets)
     return summary

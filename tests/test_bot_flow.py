@@ -676,3 +676,82 @@ async def test_vegan_sees_only_vegan_foods_and_evening_summary(env):
         assert await send_daily_summary(env["bot"], s, user) is True
     text = u.last_text()
     assert "Daily summary" in text and "kcal short" in text and "Easy protein" in text
+
+
+# ---------- Phase 6: achievements, auto-adjust, admin ----------
+
+async def test_achievements_and_streak_after_workout(env):
+    u = FakeUser(env, 12121)
+    await onboard_intermediate(u)
+    await u.send("/achievements")
+    assert "Achievements</b> (0/18)" in u.last_text() and "🔒 First workout" in u.last_text()
+
+    await u.send("/workout")
+    await u.tap("Start workout")
+    await u.send("60x8")
+    await u.tap("Finish")
+    text = u.last_text()
+    assert "New achievement!</b> 🎉 First workout" in text
+    assert "Weekly streak: <b>0</b> week(s) · this week 1/4 workouts" in text
+
+    await u.send("/achievements")
+    assert "Achievements</b> (1/18)" in u.last_text() and "🎉 First workout · <i>" in u.last_text()
+    await u.send("/progress")
+    assert any("Achievements: 1/18" in (getattr(c, "text", None) or "") for c in u.session.calls[-3:])
+
+
+async def test_calorie_suggestion_buttons(env):
+    from datetime import datetime, timedelta, timezone
+
+    from database.models import BodyWeightLog
+    from services.nutrition import targets_for_profile
+    u = FakeUser(env, 12222)
+    await onboard_intermediate(u)
+    async with env["session_factory"]() as s:
+        user = await users.get_user(s, u.user_id)
+        now = datetime.now(timezone.utc)
+        for days_ago in (1, 4, 8, 11, 15, 18):
+            s.add(BodyWeightLog(user_id=user.id, weight_kg=80.0,
+                                logged_at=now - timedelta(days=days_ago)))
+        await s.commit()
+        before = targets_for_profile(user.profile).calories
+
+    await u.send("/progress")
+    assert "slower than your goal for 2 weeks" in u.last_text()
+    await u.tap("Add 150 kcal")
+    assert f"<b>{before + 150} kcal</b>" in u.last_text()
+    await u.send("/progress")
+    assert "slower than your goal" not in u.last_text()           # cooldown: not asked again
+
+
+async def test_admin_commands(env):
+    from config import config
+    admin, other = FakeUser(env, 13131), FakeUser(env, 13232)
+    await onboard_intermediate(other)
+    config.admin_ids.append(admin.user_id)
+    try:
+        calls_before = len(other.session.calls)
+        await other.send("/admin")                    # not an admin: nothing happens
+        assert all(type(c).__name__ != "SendMessage" or "Bot stats" not in (c.text or "")
+                   for c in other.session.calls[calls_before:])
+
+        await admin.send("/admin")
+        assert "Bot stats" in admin.last_text() and "finished onboarding" in admin.last_text()
+
+        await admin.send("/broadcast")
+        assert "Usage" in admin.last_text()
+        await admin.send("/broadcast <b>New feature:</b> achievements!")
+        assert "This is the preview" in admin.last_text()
+        sent_before = sum(type(c).__name__ == "SendMessage" for c in admin.session.calls)
+        await admin.tap("Send to everyone")
+        assert "Broadcast finished" in admin.last_text()
+        broadcasts = [c for c in admin.session.calls if type(c).__name__ == "SendMessage"
+                      and c.text == "<b>New feature:</b> achievements!"]
+        async with env["session_factory"]() as s:
+            assert len(broadcasts) - 1 == await users.count_users(s)   # +1 = admin's preview
+        assert sum(type(c).__name__ == "SendMessage" for c in admin.session.calls) > sent_before
+
+        await admin.tap("Send to everyone")           # double tap: not sent again
+        assert "no longer active" in admin.last_call("AnswerCallbackQuery").text
+    finally:
+        config.admin_ids.remove(admin.user_id)

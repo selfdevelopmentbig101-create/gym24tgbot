@@ -20,6 +20,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -84,6 +85,14 @@ class Profile(Base):
     # List of Injury values, e.g. ["knee", "shoulder"]. Empty list = none.
     injuries: Mapped[list[str]] = mapped_column(JSON, default=list)
     diet: Mapped[Diet] = mapped_column(str_enum(Diet))
+
+    # Auto-adjustments (Phase 6). Accepted calorie changes on top of the formula,
+    # kept within safe limits by services/adjust.py.
+    calorie_adjust: Mapped[int] = mapped_column(Integer, default=0)
+    kcal_offered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Deload week: lighter weights and fewer sets until this local date (exclusive).
+    deload_until: Mapped[date | None] = mapped_column(Date, nullable=True)
+    deload_offered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, onupdate=utcnow
@@ -312,3 +321,15 @@ class MealLog(Base):
     servings: Mapped[float] = mapped_column(Float, default=1)
     kcal: Mapped[int] = mapped_column(Integer)
     protein_g: Mapped[float] = mapped_column(Float)
+
+
+class Achievement(Base):
+    """An unlocked achievement. Once unlocked it stays, even if a streak later breaks."""
+
+    __tablename__ = "achievements"
+    __table_args__ = (UniqueConstraint("user_id", "code"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    code: Mapped[str] = mapped_column(String(30))
+    unlocked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

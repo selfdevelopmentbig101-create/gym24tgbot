@@ -51,7 +51,8 @@ async def weekly_trend(session: AsyncSession, user: User, now: datetime | None =
     """
     now = now or utcnow()
     entries = await weights_since(session, user, now - timedelta(days=14))
-    this_week = [e.weight_kg for e in entries if aware(e.logged_at) > now - timedelta(days=7)]
+    this_week = [e.weight_kg for e in entries
+                 if now - timedelta(days=7) < aware(e.logged_at) <= now]
     last_week = [e.weight_kg for e in entries if aware(e.logged_at) <= now - timedelta(days=7)]
     if not this_week or not last_week:
         return None

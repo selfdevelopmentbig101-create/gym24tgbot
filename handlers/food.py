@@ -26,7 +26,8 @@ from keyboards.food import (
     food_menu_keyboard,
     logged_keyboard,
 )
-from services import foods, meals, reminders, users
+from handlers import extras
+from services import achievements, foods, meals, reminders, users
 from services.body import aware
 from services.foods import CATEGORIES
 from services.validation import ValidationError
@@ -151,6 +152,10 @@ async def _logged_view(session: AsyncSession, user: User, entry) -> tuple[str, o
     lines = [t("food_logged", name=html.escape(entry.name), serving=serving, servings=servings,
                kcal=entry.kcal, protein=_num(entry.protein_g)), ""]
     lines += summary_lines(summary, t("food_today"), user.profile.diet)
+    # Hitting protein can complete a protein-streak achievement.
+    new = await achievements.check_new(session, user)
+    if new:
+        lines += ["", extras.new_achievements_text(new)]
     return "\n".join(lines), logged_keyboard(entry.id, entry.servings, food is not None)
 
 

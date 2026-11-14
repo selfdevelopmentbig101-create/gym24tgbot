@@ -3,7 +3,7 @@
 A Telegram bot that helps people gain muscle: workout plans, logging,
 progress tracking, calorie/protein targets and reminders.
 
-**Status: Phases 1–5 are done: onboarding, exercise library and plan generator, workout logger, progress and reminders, nutrition.**
+**Status: Phases 1–5 are done, plus the first part of Phase 6 (streaks and achievements, auto-adjusting plans and calories, admin commands).**
 
 ## Project structure
 
@@ -16,7 +16,8 @@ database/
   enums.py             Fixed choices (goal, sex, equipment, ...)
   models.py            Tables: users, profiles, exercises, workout_plans, plan_days,
                        plan_exercises, media_cache, workout_sessions, set_logs,
-                       body_weight_logs, measurement_logs, reminder_settings, meal_logs
+                       body_weight_logs, measurement_logs, reminder_settings, meal_logs,
+                       achievements
 services/              Business logic, no Telegram code (reusable by a Mini App or native app)
   nutrition.py         TDEE (Mifflin-St Jeor), surplus, protein, safety limits
   validation.py        Input parsing/validation (age, height, weight...)
@@ -36,6 +37,8 @@ services/              Business logic, no Telegram code (reusable by a Mini App 
   scheduler.py         APScheduler jobs built from reminder settings
   foods.py             Quick-log food list (data/foods.json), diet filter
   meals.py             Meal logging, daily totals, weekly average
+  achievements.py      Weekly and protein streaks, achievements
+  adjust.py            Deload and calorie suggestions (with safety limits)
 handlers/              Telegram handlers
   common.py            /start, /help, /about, /cancel, disclaimer
   onboarding.py        10-step profile form (also used to edit one field)
@@ -47,6 +50,8 @@ handlers/              Telegram handlers
   progress.py          /progress, /weight, /measure: summary, PRs, charts
   reminders.py         /reminders settings and the reminder/nudge messages
   food.py              /food: quick logging, manual entry, daily summary
+  extras.py            /achievements and Accept/Not now for suggestions
+  admin.py             /admin stats and /broadcast (ADMIN_IDS only)
 keyboards/             Inline keyboards and callback data
 utils/
   texts.py             All user-facing texts (ready for multiple languages)
@@ -217,6 +222,32 @@ Manual test in Telegram:
   sent only on days you logged food. It shows what's left and a gentle tip
   (e.g. "a shake closes the gap"). It never suggests skipping meals, and when you go
   over, it points to the weekly average instead of a single day.
+
+## Streaks, achievements and auto-adjust
+
+- **Weekly streak:** weeks in a row (Monday to Sunday) with at least your
+  planned number of workouts. Rest days never break it, and the current week
+  doesn't break it until it's over. There's also a protein streak (days in a
+  row at your protein target).
+- **Achievements** (`/achievements`, 18 of them): workout counts, streaks, PRs,
+  total weight lifted, protein streaks, weigh-ins. Each unlock is announced
+  once, and earned achievements stay even if a streak later breaks.
+- **Deload suggestion:** when 2+ exercises haven't improved their estimated
+  1RM over the last 3 workouts, after the workout summary the bot offers a
+  lighter week: about 60% of the sets at about 90% of the weight. Nothing
+  changes unless you tap **Start deload week**, and the normal plan returns
+  after 7 days. It isn't offered again for 3 weeks after a "Not now", or 4
+  weeks after a deload.
+- **Calorie suggestion:** if weight gain was too slow (or too fast) for your
+  goal two weeks in a row, `/progress` and weigh-ins offer +150 (or -150)
+  kcal a day. Total changes stay between -300 and +450 kcal, the "never below
+  resting needs" floor still applies, there's a 2-week cooldown, and changing
+  your goal resets them.
+- **Admin:** put your Telegram user ID in `ADMIN_IDS` in `.env`. `/admin`
+  shows users, new and active users, and workouts in the last 7 days.
+  `/broadcast your text` shows a preview, then **Send to everyone** sends at
+  about 20 messages per second and reports how many were sent and how many
+  users blocked the bot. Non-admins get no reply to these commands.
 
 ## How plans are built
 

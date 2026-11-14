@@ -86,7 +86,9 @@ def calculate_targets(
     sex: Sex,
     training_days: int,
     goal: Goal,
+    calorie_adjust: int = 0,
 ) -> NutritionTargets:
+    """calorie_adjust: accepted auto-adjustments (see services/adjust.py), already within safe limits."""
     sex, goal = Sex(sex), Goal(goal)
     notes: list[str] = []
 
@@ -98,7 +100,7 @@ def calculate_targets(
     surplus = clamp(surplus, -MAX_DEFICIT_KCAL, MAX_SURPLUS_KCAL)
 
     # Round to the nearest 10 kcal: nobody can eat more precisely than that.
-    calories = round((tdee + surplus) / 10) * 10
+    calories = round((tdee + surplus) / 10) * 10 + int(calorie_adjust)
     # Safety floor: never below BMR or a sex-based minimum.
     calories = int(max(calories, round(bmr / 10) * 10, MIN_CALORIES[sex]))
 
@@ -140,4 +142,5 @@ def targets_for_profile(profile) -> NutritionTargets:
         sex=profile.sex,
         training_days=profile.training_days,
         goal=profile.goal,
+        calorie_adjust=getattr(profile, "calorie_adjust", 0) or 0,
     )

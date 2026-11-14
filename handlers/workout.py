@@ -27,7 +27,8 @@ from keyboards.workout import (
     overview_keyboard,
     rest_over_keyboard,
 )
-from services import plans, reminders, users, workouts
+from handlers import extras
+from services import achievements, plans, reminders, users, workouts
 from services.progression import Suggestion
 from services.rest_timer import rest_timers
 from services.scheduler import sync_user
@@ -111,6 +112,8 @@ async def card_view(session: AsyncSession, user: User, ws: WorkoutSession):
         t("workout_target", sets=item["sets"], reps=fmt_reps_range(item),
           rest=format_rest(item["rest_seconds"])),
     ]
+    if await workouts.in_deload(session, user):
+        lines.insert(1, t("deload_banner", until=user.profile.deload_until.strftime("%d %b")))
     if previous:
         lines.append(t("workout_last_time", sets=fmt_sets(previous, exercise.equipment, timed)))
         lines.append(t(f"hint_{hint.kind}", **hint_params(hint, exercise, timed)))
@@ -405,7 +408,13 @@ async def _finish(callback: CallbackQuery, session: AsyncSession, user: User,
     # Missed-workout streak resets and any "remind me tomorrow" is cancelled.
     sync_user(user.id, await reminders.workout_finished(session, user))
     plan = await plans.get_plan(session, user)
-    await send_or_edit(callback, summary_text(summary, plan, day_index))
+    parts = [summary_text(summary, plan, day_index)]
+    new = await achievements.check_new(session, user)
+    extra = [extras.streak_text(await achievements.compute_stats(session, user)),
+             extras.new_achievements_text(new)]
+    parts += [p for p in extra if p]
+    await send_or_edit(callback, "\n\n".join(parts))
+    await extras.send_suggestions(callback.message, session, user, calories=False)
 
 
 # ---------- Typed sets ----------

@@ -25,7 +25,8 @@ from keyboards.progress import (
     strength_keyboard,
     weight_keyboard,
 )
-from services import body, charts, records, reminders, users
+from handlers import extras
+from services import achievements, body, charts, records, reminders, users
 from services.body import aware
 from services.nutrition import targets_for_profile
 from services.validation import ValidationError
@@ -78,6 +79,12 @@ async def progress_text(session: AsyncSession, user: User) -> str:
             .where(WorkoutSession.user_id == user.id, WorkoutSession.finished_at.is_not(None),
                    WorkoutSession.finished_at >= now - timedelta(days=days))) or 0)
     lines.append(t("progress_workouts", week=counts[0], month=counts[1]))
+    stats = await achievements.compute_stats(session, user)
+    streak = extras.streak_text(stats)
+    if streak:
+        lines.append(streak)
+    unlocked = await achievements.unlocked(session, user)
+    lines.append(t("progress_achievements", n=len(unlocked), total=len(achievements.ACHIEVEMENTS)))
 
     measurements = await body.last_measurements(session, user)
     if measurements:
@@ -109,8 +116,10 @@ async def _show_progress(event, session: AsyncSession, user: User) -> None:
     if isinstance(event, CallbackQuery) and not event.message.text:
         # Coming back from a chart (a photo): send the summary as a new message.
         await event.message.answer(text, reply_markup=progress_keyboard())
-        return
-    await send_or_edit(event, text, progress_keyboard())
+    else:
+        await send_or_edit(event, text, progress_keyboard())
+    target = event.message if isinstance(event, CallbackQuery) else event
+    await extras.send_suggestions(target, session, user)
 
 
 @router.message(Command("progress"))
@@ -140,7 +149,12 @@ async def _save_weight(event, session: AsyncSession, user: User, value) -> None:
              trend_line(await body.weekly_trend(session, user), user)]
     if (before.calories, before.protein_g) != (after.calories, after.protein_g):
         lines.append(t("targets_updated", calories=after.calories, protein=after.protein_g))
+    new = await achievements.check_new(session, user)
+    if new:
+        lines.append(extras.new_achievements_text(new))
     await send_or_edit(event, "\n\n".join(lines), back_to_progress())
+    target = event.message if isinstance(event, CallbackQuery) else event
+    await extras.send_suggestions(target, session, user, deload=False)
 
 
 async def _show_weight_logger(event, session: AsyncSession, user: User, state: FSMContext) -> None:

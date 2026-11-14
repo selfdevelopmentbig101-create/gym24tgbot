@@ -36,6 +36,7 @@ BOT_COMMANDS = [
     BotCommand(command="workout", description="Start or continue today's workout"),
     BotCommand(command="plan", description="Your workout plan"),
     BotCommand(command="progress", description="Weight, PRs and charts"),
+    BotCommand(command="achievements", description="Streaks and achievements"),
     BotCommand(command="weight", description="Log body weight"),
     BotCommand(command="food", description="Log meals and see calories and protein"),
     BotCommand(command="reminders", description="Workout and weigh-in reminders"),

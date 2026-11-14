@@ -19,6 +19,7 @@ EN: dict[str, str] = {
         "/plan — your workout plan\n"
         "/workout — start or continue today's workout\n"
         "/progress — weight, PRs and charts\n"
+        "/achievements — streaks and achievements\n"
         "/weight — log body weight (e.g. /weight 75.4)\n"
         "/measure — log a body measurement\n"
         "/food — log meals, daily calories and protein\n"
@@ -474,6 +475,87 @@ EN: dict[str, str] = {
                         "Check the numbers.",
     "reminders_summary_on": "at {time} (if you logged food)",
     "btn_rem_summary": "🍽 Summary: {state}",
+
+    # ----- Streaks and achievements -----
+    "streak_line": "🔥 Weekly streak: <b>{weeks}</b> week(s) · this week {done}/{goal} workouts",
+    "protein_streak_line": "🥩 Protein streak: <b>{days}</b> day(s)",
+    "progress_achievements": "🏅 Achievements: {n}/{total}. See /achievements",
+    "ach_header": "🏅 <b>Achievements</b> ({n}/{total})",
+    "ach_line_done": "{name} · <i>{date}</i>",
+    "ach_line_locked": "🔒 {name}: {desc} ({progress})",
+    "ach_unlocked": "🏅 <b>New achievement!</b> {names}",
+    "ach_first_workout": "First workout",
+    "ach_first_workout_desc": "finish your first workout",
+    "ach_workouts_10": "10 workouts",
+    "ach_workouts_10_desc": "finish 10 workouts",
+    "ach_workouts_25": "25 workouts",
+    "ach_workouts_25_desc": "finish 25 workouts",
+    "ach_workouts_50": "50 workouts",
+    "ach_workouts_50_desc": "finish 50 workouts",
+    "ach_workouts_100": "100 workouts",
+    "ach_workouts_100_desc": "finish 100 workouts",
+    "ach_streak_2": "2-week streak",
+    "ach_streak_2_desc": "hit your weekly workout goal 2 weeks in a row",
+    "ach_streak_4": "4-week streak",
+    "ach_streak_4_desc": "hit your weekly workout goal 4 weeks in a row",
+    "ach_streak_8": "8-week streak",
+    "ach_streak_8_desc": "hit your weekly workout goal 8 weeks in a row",
+    "ach_streak_12": "12-week streak",
+    "ach_streak_12_desc": "hit your weekly workout goal 12 weeks in a row",
+    "ach_first_pr": "First PR",
+    "ach_first_pr_desc": "beat a personal record",
+    "ach_prs_10": "10 PRs",
+    "ach_prs_10_desc": "set 10 personal records",
+    "ach_prs_25": "25 PRs",
+    "ach_prs_25_desc": "set 25 personal records",
+    "ach_volume_10t": "10 tonnes",
+    "ach_volume_10t_desc": "lift 10,000 kg in total",
+    "ach_volume_100t": "100 tonnes",
+    "ach_volume_100t_desc": "lift 100,000 kg in total",
+    "ach_protein_3": "Protein ×3",
+    "ach_protein_3_desc": "hit your protein target 3 days in a row",
+    "ach_protein_7": "Protein week",
+    "ach_protein_7_desc": "hit your protein target 7 days in a row",
+    "ach_protein_30": "Protein month",
+    "ach_protein_30_desc": "hit your protein target 30 days in a row",
+    "ach_weighins_10": "Consistent weigh-ins",
+    "ach_weighins_10_desc": "log your weight 10 times",
+
+    # ----- Auto-adjust -----
+    "deload_offer": "🧘 <b>Time for a deload week?</b>\nNo progress lately on: {names}.\n"
+                    "Stalls often mean fatigue has built up. One lighter week (fewer sets, "
+                    "about 10% less weight) usually lets you come back stronger.",
+    "deload_started": "✅ Deload week until <b>{until}</b>: fewer sets and about 10% lighter. "
+                      "Your normal plan comes back automatically after that.",
+    "deload_banner": "🧘 <i>Deload week until {until}: lighter and fewer sets</i>",
+    "hint_deload": "🧘 Deload: use <b>{weight}</b>, about {low} easy reps. No grinding.",
+    "kcal_offer_up": "📈 <b>Weight gain has been slower than your goal for 2 weeks</b> "
+                     "({trend} kg/week).\nAdd <b>{kcal} kcal a day</b>? New target: {new} kcal.",
+    "kcal_offer_down": "📉 <b>Weight has been going up faster than your goal for 2 weeks</b> "
+                       "({trend} kg/week), so likely extra fat.\nEat <b>{kcal} kcal a day less</b>? "
+                       "New target: {new} kcal.",
+    "kcal_applied": "✅ Your daily target is now <b>{calories} kcal</b>. Give it 2 weeks before judging.",
+    "adjust_dismissed": "👍 Okay, no changes. I'll check again in a couple of weeks.",
+    "btn_deload_yes": "🧘 Start deload week",
+    "btn_kcal_up": "✅ Add {kcal} kcal",
+    "btn_kcal_down": "✅ Eat {kcal} kcal less",
+    "btn_not_now": "Not now",
+
+    # ----- Admin -----
+    "admin_stats": "🛠 <b>Bot stats</b>\n"
+                   "Users: <b>{users}</b> ({profiles} finished onboarding)\n"
+                   "New in the last 7 days: <b>{new_7d}</b>\n"
+                   "Active in the last 7 days: <b>{active_7d}</b>\n"
+                   "Workouts finished in the last 7 days: <b>{workouts_7d}</b>\n\n"
+                   "Send a message to everyone: <code>/broadcast your text</code> (you get a preview first).",
+    "broadcast_usage": "Usage: <code>/broadcast your message</code> (HTML formatting allowed).",
+    "broadcast_bad_html": "Telegram rejected the formatting: {error}",
+    "broadcast_confirm": "☝️ This is the preview. Send it to <b>all users</b>?",
+    "broadcast_sending": "📤 Sending to {n} users…",
+    "broadcast_done": "✅ Broadcast finished: {sent} sent, {blocked} blocked the bot, {failed} failed.",
+    "broadcast_cancelled": "Broadcast cancelled.",
+    "btn_broadcast_send": "📤 Send to everyone",
+    "btn_broadcast_cancel": "Cancel",
 }
 
 # Phase 6: add more language dicts here (or load them from files).

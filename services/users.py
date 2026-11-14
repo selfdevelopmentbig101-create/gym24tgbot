@@ -83,7 +83,11 @@ async def update_profile_field(
 ) -> Profile:
     if user.profile is None:
         raise ValueError("User has no profile yet")
+    old = getattr(user.profile, field_name)
     setattr(user.profile, field_name, clean_profile_value(field_name, value))
+    if field_name == "goal" and getattr(user.profile, field_name) != old:
+        # Calorie tweaks were tuned for the old goal: start fresh.
+        user.profile.calorie_adjust = 0
     await session.commit()
     return user.profile
 
