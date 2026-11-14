@@ -34,6 +34,15 @@ class Config:
         )
     )
     admin_ids: list[int] = field(default_factory=lambda: _int_list(os.getenv("ADMIN_IDS", "")))
+    # Premium via Telegram Stars. PREMIUM_ENABLED=false makes everything free.
+    premium_enabled: bool = field(
+        default_factory=lambda: os.getenv("PREMIUM_ENABLED", "true").lower() in ("1", "true", "yes")
+    )
+    premium_month_stars: int = field(default_factory=lambda: int(os.getenv("PREMIUM_MONTH_STARS", "150")))
+    premium_year_stars: int = field(default_factory=lambda: int(os.getenv("PREMIUM_YEAR_STARS", "1200")))
+    # Public HTTPS address of the Mini App (webapp/index.html), e.g. GitHub Pages.
+    # Empty = Mini App buttons are hidden.
+    webapp_url: str = field(default_factory=lambda: os.getenv("WEBAPP_URL", "").strip())
 
 
 config = Config()

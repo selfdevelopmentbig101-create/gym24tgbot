@@ -343,6 +343,12 @@ def no_stray_timers():
     rest_timers.time_scale = 1.0
 
 
+async def start_trial(u):
+    await u.send("/premium")
+    await u.tap("Try 7 days free")
+    assert "Premium is free for 7 days" in u.last_text()
+
+
 async def onboard_intermediate(u: FakeUser):
     await u.send("/start")
     await u.tap("I understand")
@@ -443,6 +449,7 @@ async def test_typed_set_without_workout_and_with_bad_values(env):
 async def test_progress_weight_measurements_and_charts(env):
     u = FakeUser(env, 10101)
     await onboard_intermediate(u)              # 80 kg in onboarding
+    await start_trial(u)                       # charts are Premium
 
     await u.send("/progress")
     assert "No weigh-ins yet" in u.last_text()
@@ -489,6 +496,7 @@ async def test_progress_weight_measurements_and_charts(env):
 async def test_prs_in_workout_and_progress(env):
     u = FakeUser(env, 10202)
     await onboard_intermediate(u)
+    await start_trial(u)
     await u.send("/workout")
     await u.tap("Start workout")
     await u.send("60x8")
@@ -707,6 +715,7 @@ async def test_calorie_suggestion_buttons(env):
     from services.nutrition import targets_for_profile
     u = FakeUser(env, 12222)
     await onboard_intermediate(u)
+    await start_trial(u)                       # suggestions are Premium
     async with env["session_factory"]() as s:
         user = await users.get_user(s, u.user_id)
         now = datetime.now(timezone.utc)
@@ -755,3 +764,149 @@ async def test_admin_commands(env):
         assert "no longer active" in admin.last_call("AnswerCallbackQuery").text
     finally:
         config.admin_ids.remove(admin.user_id)
+
+
+# ---------- Phase 6 (part 2): languages, Premium, Mini App ----------
+
+async def test_language_switch_and_telegram_language(env):
+    # A Russian Telegram user gets Russian from the very first message.
+    ru = FakeUser(env, 14141)
+    ru.tg_user = ru.tg_user.model_copy(update={"language_code": "ru"})
+    await ru.send("/start")
+    assert "Предупреждение" in ru.last_text() or "медицин" in ru.last_text()
+
+    # Switching to Uzbek on the first screen re-shows the disclaimer in Uzbek.
+    await ru.tap("Язык")
+    await ru.tap("O‘zbekcha")
+    assert "O‘zbekcha" not in ru.last_text()
+    async with env["session_factory"]() as s:
+        assert (await users.get_user(s, ru.user_id)).language_code == "uz"
+    assert any(type(c).__name__ == "SetMyCommands" and c.scope is not None
+               for c in ru.session.calls)
+    await ru.send("/help")
+    assert "Buyruqlar" in ru.last_text()
+
+    # /language works later too; the choice survives (stored per user).
+    await ru.send("/language")
+    await ru.tap("English")
+    assert "Health disclaimer" in ru.last_text()   # not accepted yet: shown again in English
+    await ru.send("/help")
+    assert "<b>Commands</b>" in ru.last_text()
+
+
+async def test_premium_lock_trial_and_stars_payment(env):
+    from aiogram.types import PreCheckoutQuery, SuccessfulPayment
+    from config import config
+
+    u = FakeUser(env, 15151)
+    await onboard_intermediate(u)
+    await u.send("/progress")
+    await u.tap("Weight chart")
+    assert u.last_call("AnswerCallbackQuery").text == "⭐ This is a Premium feature."
+    await u.tap("See Premium")
+    text = u.last_text()
+    assert "Free forever" in text and "Premium adds" in text
+    labels = [b.text for row in u.last_markup().inline_keyboard for b in row]
+    assert labels == ["⭐ 1 month · 150 Stars", "⭐ 12 months · 1200 Stars (−33%)", "🎁 Try 7 days free"]
+
+    await u.tap("1 month")
+    invoice = u.last_call("SendInvoice")
+    assert invoice.currency == "XTR" and invoice.prices[0].amount == 150
+    assert invoice.provider_token is None
+
+    # Telegram asks us to confirm the checkout: right user and price -> ok.
+    async def checkout(payload, amount, from_id):
+        u._next_update_id()
+        query = PreCheckoutQuery(id="q", from_user=u.tg_user.model_copy(update={"id": from_id}),
+                                 currency="XTR", total_amount=amount, invoice_payload=payload)
+        await u.dp.feed_update(u.bot, Update(update_id=u.update_id, pre_checkout_query=query))
+        return u.last_call("AnswerPreCheckoutQuery")
+
+    assert (await checkout(invoice.payload, 150, u.user_id)).ok is True
+    assert (await checkout(invoice.payload, 100, u.user_id)).ok is False     # stale price
+    assert (await checkout(invoice.payload, 150, 999)).ok is False           # someone else
+
+    # Payment arrives (twice, to check it's only counted once).
+    for _ in range(2):
+        u._next_update_id()
+        paid = Message(message_id=u.update_id, date=datetime.now(), chat=u.chat, from_user=u.tg_user,
+                       successful_payment=SuccessfulPayment(
+                           currency="XTR", total_amount=150, invoice_payload=invoice.payload,
+                           telegram_payment_charge_id="charge-1", provider_payment_charge_id=""))
+        await u.dp.feed_update(u.bot, Update(update_id=u.update_id, message=paid))
+    assert "Premium is active until" in u.last_text() and "charge-1" in u.last_text()
+    async with env["session_factory"]() as s:
+        from datetime import timedelta as td
+        from database.models import Payment, utcnow
+        from services.body import aware
+        user = await users.get_user(s, u.user_id)
+        assert len(list(await s.scalars(select(Payment)))) == 1
+        remaining = aware(user.premium_until) - utcnow()
+        assert td(days=29) < remaining <= td(days=30)
+
+    await u.send("/progress")
+    await u.tap("Volume chart")                   # unlocked now (no data yet, but not locked)
+    assert u.last_call("AnswerCallbackQuery").text != "⭐ This is a Premium feature."
+
+    # Admin refund removes the days again.
+    config.admin_ids.append(16161)
+    try:
+        admin = FakeUser(env, 16161)
+        await admin.send("/refund charge-1")
+        assert type(admin.session.calls[-2]).__name__ == "RefundStarPayment"
+        assert "Refunded 150 Stars" in admin.last_text()
+        await admin.send("/refund charge-1")
+        assert "already refunded" in admin.last_text()
+    finally:
+        config.admin_ids.remove(16161)
+    async with env["session_factory"]() as s:
+        user = await users.get_user(s, u.user_id)
+        from services import premium as premium_service
+        assert not premium_service.is_premium(user)
+
+
+async def test_mini_app_round_trip(env):
+    import json
+    from aiogram.types import WebAppData
+    from config import config
+    from services import webapp
+
+    u = FakeUser(env, 17171)
+    await onboard_intermediate(u)
+
+    object.__setattr__(config, "webapp_url", "")
+    await u.send("/app")
+    assert "isn't set up yet" in u.last_text()
+
+    object.__setattr__(config, "webapp_url", "https://example.github.io/gym/webapp/")
+    try:
+        await u.send("/workout")
+        assert "/app" in u.last_text()
+        await u.send("/app")
+        message = u.last_call("SendMessage")
+        button = message.reply_markup.keyboard[0][0]
+        assert button.web_app.url.startswith("https://example.github.io/gym/webapp/#d=")
+        payload = webapp.decode(button.web_app.url.split("#d=")[1])
+        assert payload["d"] == 0 and payload["l"] == "en" and payload["dn"] == "Upper A"
+        assert payload["x"][0]["i"] == "bench-press" and "pr" not in payload   # charts are Premium
+
+        # The app sends back the sets (2 bench sets + 1 junk + 1 invalid).
+        sets = [["bench-press", 60, 8], ["bench-press", 60, 7], ["no-such-exercise", 10, 10],
+                ["pull-up", 0, 0]]
+        u._next_update_id()
+        msg = Message(message_id=u.update_id, date=datetime.now(), chat=u.chat, from_user=u.tg_user,
+                      web_app_data=WebAppData(data=json.dumps({"v": 1, "d": 0, "s": sets}),
+                                              button_text="open"))
+        await u.dp.feed_update(u.bot, Update(update_id=u.update_id, message=msg))
+        text = u.last_text()
+        assert "Workout done: Upper A" in text and "2 sets" in text and "2 set(s) had invalid" in text
+        assert type(u.last_call("SendMessage").reply_markup).__name__ == "ReplyKeyboardRemove"
+
+        # Garbage from the app is rejected politely.
+        u._next_update_id()
+        bad = Message(message_id=u.update_id, date=datetime.now(), chat=u.chat, from_user=u.tg_user,
+                      web_app_data=WebAppData(data="{nope", button_text="open"))
+        await u.dp.feed_update(u.bot, Update(update_id=u.update_id, message=bad))
+        assert "couldn't read the data" in u.last_text()
+    finally:
+        object.__setattr__(config, "webapp_url", "")

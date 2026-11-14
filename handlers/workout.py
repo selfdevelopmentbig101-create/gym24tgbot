@@ -17,6 +17,7 @@ from aiogram.filters import Command, StateFilter
 from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from config import config
 from database.models import Exercise, User, WorkoutPlan, WorkoutSession
 from handlers.cards import day_label, format_rest
 from handlers.onboarding import send_or_edit
@@ -32,7 +33,7 @@ from services import achievements, plans, reminders, users, workouts
 from services.progression import Suggestion
 from services.rest_timer import rest_timers
 from services.scheduler import sync_user
-from utils.texts import t
+from utils.texts import fmt_day, t
 
 logger = logging.getLogger(__name__)
 router = Router(name="workout")
@@ -93,6 +94,8 @@ async def overview_view(session: AsyncSession, user: User, plan: WorkoutPlan, da
             lines.append(t("workout_line_last",
                            last=fmt_sets(past[0], entry.exercise.equipment, entry.timed)))
     lines += ["", t("workout_overview_footer")]
+    if config.webapp_url:
+        lines.append(t("workout_app_hint"))
     labels = [day_label(d.name_key, d.suffix) for d in plan.days]
     return "\n".join(lines), overview_keyboard(day_index, labels)
 
@@ -113,7 +116,7 @@ async def card_view(session: AsyncSession, user: User, ws: WorkoutSession):
           rest=format_rest(item["rest_seconds"])),
     ]
     if await workouts.in_deload(session, user):
-        lines.insert(1, t("deload_banner", until=user.profile.deload_until.strftime("%d %b")))
+        lines.insert(1, t("deload_banner", until=fmt_day(user.profile.deload_until)))
     if previous:
         lines.append(t("workout_last_time", sets=fmt_sets(previous, exercise.equipment, timed)))
         lines.append(t(f"hint_{hint.kind}", **hint_params(hint, exercise, timed)))

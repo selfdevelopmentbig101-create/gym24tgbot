@@ -4,6 +4,7 @@ For everyone else these commands simply don't exist.
 
 /admin            bot statistics
 /broadcast <text> preview a message, then Send to every user
+/refund <charge>  refund a Telegram Stars payment
 """
 import asyncio
 import logging
@@ -18,9 +19,10 @@ from sqlalchemy import func, select, union
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import config
-from database.models import BodyWeightLog, MealLog, Profile, User, WorkoutSession, utcnow
+from database.models import BodyWeightLog, MealLog, Payment, Profile, User, WorkoutSession, utcnow
 from handlers.onboarding import send_or_edit
 from keyboards.extras import AdminCB, broadcast_keyboard
+from services import premium
 from utils.texts import t
 
 logger = logging.getLogger(__name__)
@@ -58,6 +60,11 @@ async def bot_stats(session: AsyncSession) -> dict[str, int]:
         "workouts_7d": await count(
             select(func.count()).select_from(WorkoutSession)
             .where(WorkoutSession.finished_at >= week_ago)),
+        "premium": await count(select(func.count()).select_from(User)
+                               .where(User.premium_until > utcnow())),
+        "stars_30d": await count(select(func.coalesce(func.sum(Payment.stars), 0))
+                                 .where(Payment.refunded.is_(False),
+                                        Payment.created_at >= utcnow() - timedelta(days=30))),
     }
 
 
@@ -102,6 +109,30 @@ async def on_send(callback: CallbackQuery, bot: Bot, session: AsyncSession, stat
     sent, blocked, failed = await broadcast(bot, recipients, text)
     logger.info("Broadcast: %s sent, %s blocked, %s failed", sent, blocked, failed)
     await callback.message.answer(t("broadcast_done", sent=sent, blocked=blocked, failed=failed))
+
+
+@router.message(Command("refund"))
+async def cmd_refund(message: Message, command: CommandObject, bot: Bot,
+                     session: AsyncSession) -> None:
+    """/refund <charge id>: return the Stars and remove the Premium days that payment added."""
+    charge_id = (command.args or "").strip()
+    payment = await session.scalar(select(Payment).where(Payment.charge_id == charge_id)) \
+        if charge_id else None
+    if payment is None:
+        await message.answer(t("refund_usage"))
+        return
+    if payment.refunded:
+        await message.answer(t("refund_already"))
+        return
+    user = await session.get(User, payment.user_id)
+    try:
+        await bot.refund_star_payment(user_id=user.telegram_id, telegram_payment_charge_id=charge_id)
+    except TelegramBadRequest as error:
+        await message.answer(t("refund_failed", error=str(error)), parse_mode=None)
+        return
+    await premium.mark_refunded(session, payment, user)
+    logger.info("Payment refunded")
+    await message.answer(t("refund_done", stars=payment.stars))
 
 
 async def broadcast(bot: Bot, recipients: list[int], text: str,

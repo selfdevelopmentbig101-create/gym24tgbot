@@ -1,17 +1,19 @@
-"""/start, /help, /about, /cancel and the health disclaimer."""
+"""/start, /help, /about, /cancel, /language and the health disclaimer."""
 import logging
 
-from aiogram import F, Router
+from aiogram import Bot, F, Router
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import config
-from handlers.onboarding import ask_step, start_onboarding, step_from_state
-from keyboards.profile import MenuCB, disclaimer_keyboard
+from handlers.onboarding import ask_step, send_or_edit, start_onboarding, step_from_state
+from keyboards.profile import LangCB, MenuCB, disclaimer_keyboard, language_keyboard
 from services import users
-from utils.texts import t
+from utils.commands import set_chat_commands
+from utils.texts import SUPPORTED_LANGUAGES, set_language, t
 
 logger = logging.getLogger(__name__)
 router = Router(name="common")
@@ -78,3 +80,40 @@ async def cmd_cancel(message: Message, state: FSMContext) -> None:
         return
     await state.clear()
     await message.answer(t("cancelled"))
+
+
+# ---------- Language ----------
+
+@router.message(Command("language"))
+async def cmd_language(message: Message) -> None:
+    await message.answer(t("language_pick"), reply_markup=language_keyboard())
+
+
+@router.callback_query(MenuCB.filter(F.action == "language"))
+async def on_language_menu(callback: CallbackQuery) -> None:
+    await callback.answer()
+    await callback.message.answer(t("language_pick"), reply_markup=language_keyboard())
+
+
+@router.callback_query(LangCB.filter())
+async def on_language(callback: CallbackQuery, callback_data: LangCB, bot: Bot,
+                      session: AsyncSession) -> None:
+    if callback_data.code not in SUPPORTED_LANGUAGES:
+        await callback.answer(t("stale_button"))
+        return
+    user = await users.get_or_create_user(session, callback.from_user.id,
+                                          callback.from_user.language_code)
+    user.language_code = callback_data.code
+    await session.commit()
+    lang = set_language(callback_data.code)  # the rest of this reply uses the new language
+    await callback.answer()
+    try:
+        await set_chat_commands(bot, callback.message.chat.id, lang)
+    except TelegramBadRequest:
+        logger.warning("Could not update the command menu language")
+
+    if user.disclaimer_accepted_at is None:
+        # Still on the first screen: show the disclaimer again in the new language.
+        await send_or_edit(callback, t("disclaimer"), disclaimer_keyboard())
+    else:
+        await send_or_edit(callback, t("language_changed"))

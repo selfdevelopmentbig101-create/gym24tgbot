@@ -26,7 +26,8 @@ from keyboards.progress import (
     weight_keyboard,
 )
 from handlers import extras
-from services import achievements, body, charts, records, reminders, users
+from handlers.premium import send_locked
+from services import achievements, body, charts, premium, records, reminders, users
 from services.body import aware
 from services.nutrition import targets_for_profile
 from services.validation import ValidationError
@@ -373,6 +374,9 @@ async def on_strength(callback: CallbackQuery, session: AsyncSession) -> None:
     user = await _user(callback, session)
     if user is None:
         return
+    if not premium.has(user, "charts"):
+        await send_locked(callback)
+        return
     exercises = await records.logged_exercises(session, user)
     await callback.answer()
     if not exercises:
@@ -385,6 +389,9 @@ async def on_strength(callback: CallbackQuery, session: AsyncSession) -> None:
 async def on_chart(callback: CallbackQuery, callback_data: ProgCB, session: AsyncSession) -> None:
     user = await _user(callback, session)
     if user is None:
+        return
+    if not premium.has(user, "charts"):
+        await send_locked(callback)
         return
     days = callback_data.r if callback_data.r in (7, 30) else 30
     try:

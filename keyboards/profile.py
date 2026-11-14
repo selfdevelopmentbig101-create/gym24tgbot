@@ -9,7 +9,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from database.enums import Diet, Equipment, Experience, Goal, Injury, Sex
 from keyboards.food import FoodCB
 from services.validation import TRAINING_DAYS_RANGE
-from utils.texts import t
+from utils.texts import LANGUAGE_NAMES, SUPPORTED_LANGUAGES, t
 
 
 class ProfileCB(CallbackData, prefix="pf"):
@@ -99,6 +99,8 @@ def injuries_keyboard(selected: list[str], show_back: bool) -> InlineKeyboardMar
 def disclaimer_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.button(text=t("btn_accept_disclaimer"), callback_data=MenuCB(action="accept_disclaimer"))
+    builder.button(text=t("btn_language"), callback_data=MenuCB(action="language"))
+    builder.adjust(1)
     return builder.as_markup()
 
 
@@ -113,6 +115,7 @@ def profile_keyboard() -> InlineKeyboardMarkup:
 def settings_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.button(text=t("btn_edit_profile"), callback_data=MenuCB(action="edit"))
+    builder.button(text=t("btn_language"), callback_data=MenuCB(action="language"))
     builder.button(text=t("btn_disclaimer"), callback_data=MenuCB(action="show_disclaimer"))
     builder.button(text=t("btn_delete_data"), callback_data=MenuCB(action="delete"))
     builder.adjust(1)
@@ -132,5 +135,17 @@ def delete_confirm_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.button(text=t("btn_delete_confirm"), callback_data=MenuCB(action="delete_yes"))
     builder.button(text=t("btn_delete_cancel"), callback_data=MenuCB(action="delete_no"))
+    builder.adjust(1)
+    return builder.as_markup()
+
+
+class LangCB(CallbackData, prefix="lang"):
+    code: str
+
+
+def language_keyboard() -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    for code in SUPPORTED_LANGUAGES:
+        builder.button(text=LANGUAGE_NAMES[code], callback_data=LangCB(code=code))
     builder.adjust(1)
     return builder.as_markup()

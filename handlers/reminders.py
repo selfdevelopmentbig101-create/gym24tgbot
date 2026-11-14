@@ -34,7 +34,7 @@ from keyboards.workout import WorkoutCB
 from services import body, plans, reminders, users, workouts
 from services.reminders import DEFAULT_WORKOUT_DAYS, REMINDER_HOURS, offset_name
 from services.scheduler import sync_user
-from utils.texts import t
+from utils.texts import set_language, t
 
 logger = logging.getLogger(__name__)
 router = Router(name="reminders")
@@ -238,6 +238,7 @@ def make_notifier(bot: Bot, session_factory: async_sessionmaker):
             settings = await session.get(ReminderSettings, user_id)
             if user is None or user.profile is None or settings is None:
                 return
+            set_language(user.language_code)  # runs outside an update, so set it here
             today = reminders.local_now(settings).date()
             try:
                 if kind in ("workout", "resched"):

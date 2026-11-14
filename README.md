@@ -3,7 +3,7 @@
 A Telegram bot that helps people gain muscle: workout plans, logging,
 progress tracking, calorie/protein targets and reminders.
 
-**Status: Phases 1–5 are done, plus the first part of Phase 6 (streaks and achievements, auto-adjusting plans and calories, admin commands).**
+**Status: Phases 1–6 are done, except the AI coach chat (on hold): streaks and achievements, auto-adjust, admin, Russian/Uzbek, Telegram Mini App and Premium (Telegram Stars).**
 
 ## Project structure
 
@@ -39,6 +39,8 @@ services/              Business logic, no Telegram code (reusable by a Mini App 
   meals.py             Meal logging, daily totals, weekly average
   achievements.py      Weekly and protein streaks, achievements
   adjust.py            Deload and calorie suggestions (with safety limits)
+  premium.py           Premium status, free trial, Stars payments
+  webapp.py            Mini App data in (page address) and out (sendData)
 handlers/              Telegram handlers
   common.py            /start, /help, /about, /cancel, disclaimer
   onboarding.py        10-step profile form (also used to edit one field)
@@ -51,10 +53,13 @@ handlers/              Telegram handlers
   reminders.py         /reminders settings and the reminder/nudge messages
   food.py              /food: quick logging, manual entry, daily summary
   extras.py            /achievements and Accept/Not now for suggestions
-  admin.py             /admin stats and /broadcast (ADMIN_IDS only)
+  admin.py             /admin stats, /broadcast, /refund (ADMIN_IDS only)
+  premium.py           /premium, Telegram Stars checkout, /paysupport
+  webapp.py            /app opens the Mini App; receives the finished workout
 keyboards/             Inline keyboards and callback data
 utils/
-  texts.py             All user-facing texts (ready for multiple languages)
+  texts.py             t("key") lookup, current language, localized dates
+  commands.py          The bot's command menu in each language
   formatting.py        Profile/targets -> message text
   middlewares.py       DB session per update, rate limiting
   logging_setup.py     Console + rotating file logs (logs/bot.log)
@@ -62,6 +67,8 @@ data/
   core_exercises.json     The 87 curated exercises (plans use only these)
   injury_exclusions.json  Exercises skipped for each injury (edit freely)
   foods.json              Quick-log foods with kcal/protein per serving (edit freely)
+locales/               en.json, ru.json, uz.json: every user-facing text
+webapp/index.html      The Mini App (one static page, hosted on GitHub Pages)
 assets/exercises/      Exercise images (see below)
 tests/                 Unit, database and end-to-end tests
 ```
@@ -263,6 +270,52 @@ Manual test in Telegram:
   near-duplicates (e.g. pull-ups + chin-ups) aren't put on the same day.
 - Sets/reps: compounds 3x8-12 (beginners) or 3x6-10 (4 sets for advanced),
   isolation 3x10-15, plank 30-45 s.
+
+## Languages
+
+English, Russian and Uzbek (Latin). New users get their Telegram app's
+language; anyone can switch with `/language` (or the 🌐 button on the first
+screen and in `/settings`), and the command menu follows. All texts are in
+`locales/*.json`; tests check every language has every text with the same
+placeholders and valid formatting. Exercise and food names are still English
+for now. The Russian and Uzbek texts were machine-assisted: have a native
+speaker read through them before launch.
+
+To add a language: copy `locales/en.json` to e.g. `locales/kk.json`, translate
+the values, and add the code to `SUPPORTED_LANGUAGES` in `utils/texts.py`.
+
+## Mini App (no server needed)
+
+`/app` opens a full-screen logger inside Telegram: steppers for weight and reps,
+a rest timer with vibration, last time's numbers, and (Premium) progress charts.
+Logged sets are kept on the phone until you tap **Finish and save**, which sends
+them to the bot as a normal finished workout.
+
+It's a single static page (`webapp/index.html`), so it can be hosted for free:
+
+1. Push the code to GitHub (the repository must be public for free Pages).
+2. On GitHub: **Settings → Pages → Build and deployment → Deploy from a branch**,
+   pick your branch and the **/ (root)** folder, and save.
+3. After a minute your page is at
+   `https://<github-username>.github.io/<repository>/webapp/`.
+4. Put that address in `.env` as `WEBAPP_URL=...` and restart the bot.
+
+Exercise images in `assets/exercises/` show as a crossfade animation in the app
+(they're served by the same GitHub Pages site).
+
+## Premium (Telegram Stars)
+
+- **Free:** plans, logging, rest timer, weight suggestions, PRs, food, reminders,
+  achievements, Mini App logger.
+- **Premium:** progress charts, smart deload/calorie suggestions, charts in the
+  Mini App. 150 Stars a month or 1,200 Stars a year (both set in `.env`), plus
+  a one-time 7-day free trial.
+- Payments use Telegram Stars (`currency=XTR`), so no payment provider account
+  is needed. Buying again early adds the days on top.
+- `/paysupport` explains how to get help (Telegram requires it). Admins can
+  refund with `/refund <payment ID>`; the user sees the ID after paying.
+- `PREMIUM_ENABLED=false` in `.env` makes everything free. Admins always have Premium.
+- To change what's Premium, edit `PREMIUM_FEATURES` in `services/premium.py`.
 
 ## Notes
 
