@@ -32,7 +32,7 @@ from services import achievements, plans, reminders, users, workouts
 from services.progression import Suggestion
 from services.rest_timer import rest_timers
 from services.scheduler import sync_user
-from utils.texts import t
+from utils.texts import fmt_day, t
 
 logger = logging.getLogger(__name__)
 router = Router(name="workout")
@@ -113,7 +113,7 @@ async def card_view(session: AsyncSession, user: User, ws: WorkoutSession):
           rest=format_rest(item["rest_seconds"])),
     ]
     if await workouts.in_deload(session, user):
-        lines.insert(1, t("deload_banner", until=user.profile.deload_until.strftime("%d %b")))
+        lines.insert(1, t("deload_banner", until=fmt_day(user.profile.deload_until)))
     if previous:
         lines.append(t("workout_last_time", sets=fmt_sets(previous, exercise.equipment, timed)))
         lines.append(t(f"hint_{hint.kind}", **hint_params(hint, exercise, timed)))

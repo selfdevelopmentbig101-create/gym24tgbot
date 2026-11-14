@@ -31,7 +31,7 @@ from services import achievements, foods, meals, reminders, users
 from services.body import aware
 from services.foods import CATEGORIES
 from services.validation import ValidationError
-from utils.texts import t
+from utils.texts import fmt_day, t
 
 logger = logging.getLogger(__name__)
 router = Router(name="food")
@@ -59,7 +59,7 @@ def day_title(day: date, today: date) -> str:
         return t("food_today")
     if day == today - timedelta(days=1):
         return t("food_yesterday")
-    return f"{t(f'weekday_{day.weekday()}')} {day.day} {day.strftime('%b')}"
+    return f"{t(f'weekday_{day.weekday()}')} {fmt_day(day)}"
 
 
 def entry_line(entry, tz_settings) -> str:
