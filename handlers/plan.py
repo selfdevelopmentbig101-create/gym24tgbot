@@ -18,7 +18,8 @@ router = Router(name="plan")
 
 
 def format_plan(plan: WorkoutPlan) -> str:
-    parts = [t("plan_header", split=t(f"split_{plan.split}"), days=len(plan.days))]
+    title = html.escape(plan.name) if plan.name else t(f"split_{plan.split}")
+    parts = [t("plan_header", split=title, days=len(plan.days))]
     for day in plan.days:
         lines = [t("plan_day_header", n=day.day_index + 1, name=day_label(day.name_key, day.suffix))]
         for entry in day.exercises:

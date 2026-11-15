@@ -1,4 +1,6 @@
 """Keyboards for the exercise library, exercise cards and the plan."""
+import html
+
 from aiogram.filters.callback_data import CallbackData
 from aiogram.types import InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
@@ -58,10 +60,14 @@ def card_keyboard(ctx: str, ref: str, exercise_id: str) -> InlineKeyboardMarkup:
 def plan_keyboard(day_labels: list[str]) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     for index, day_label in enumerate(day_labels):
-        builder.button(text=t("btn_day", n=index + 1, name=day_label),
+        # Labels are HTML-escaped for messages; buttons show plain text.
+        builder.button(text=t("btn_day", n=index + 1, name=html.unescape(day_label)),
                        callback_data=PlanCB(action="day", day=index))
     builder.button(text=t("btn_new_plan"), callback_data=PlanCB(action="regen"))
     builder.button(text=t("btn_workout"), callback_data=WorkoutCB(a="overview"))
     n = len(day_labels)
     builder.adjust(*([2] * (n // 2)), *([1] if n % 2 else []), 2)
+    app_button = open_app_button("plan", "btn_plan_in_app")
+    if app_button is not None:
+        builder.row(app_button)
     return builder.as_markup()
