@@ -60,6 +60,9 @@ def format_rest(seconds: int) -> str:
 
 
 def day_label(name_key: str, suffix: str) -> str:
+    """"Upper A", "Day 2", or a name the user typed ("~Arms" -> "Arms", HTML-escaped)."""
+    if name_key.startswith("~"):
+        return html.escape(name_key[1:])
     return f"{t('day_' + name_key)} {suffix}".strip()
 
 

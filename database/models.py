@@ -21,6 +21,8 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    false,
+    true,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -139,16 +141,30 @@ class Exercise(Base):
 
 
 class WorkoutPlan(Base):
-    """A user's generated plan. One active plan per user; regenerating replaces it."""
+    """
+    A training program. A user can have several; exactly one is current (the one
+    the bot's Workout and Plan use). kind "template" = built from a built-in split
+    (2-6 days, re-picked for the profile on reset); "custom" = made by the user.
+    """
 
     __tablename__ = "workout_plans"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), unique=True, index=True
-    )
-    split: Mapped[str] = mapped_column(String(30))  # e.g. "full_body", "upper_lower"
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    split: Mapped[str] = mapped_column(String(30))  # e.g. "full_body", "upper_lower", "custom"
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    # None = named after the split (translated in the app and the bot).
+    name: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    kind: Mapped[str] = mapped_column(String(10), default="template", server_default="template")
+    template_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Training style: "strength", "hypertrophy" or "endurance" (sets, reps and rest follow it).
+    goal: Mapped[str] = mapped_column(String(12), default="hypertrophy", server_default="hypertrophy")
+    weeks: Mapped[int] = mapped_column(Integer, default=8, server_default="8")
+    is_current: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
+    # The user changed days or exercises: profile changes no longer rebuild it automatically.
+    edited: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    started_on: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     days: Mapped[list["PlanDay"]] = relationship(
         back_populates="plan",
@@ -167,7 +183,8 @@ class PlanDay(Base):
         ForeignKey("workout_plans.id", ondelete="CASCADE"), index=True
     )
     day_index: Mapped[int] = mapped_column(Integer)  # 0-based order in the week
-    name_key: Mapped[str] = mapped_column(String(20))  # text key: "upper", "push"...
+    # Text key ("upper", "push"...), "custom" (+ number suffix), or "~" + a name the user typed.
+    name_key: Mapped[str] = mapped_column(String(40))
     suffix: Mapped[str] = mapped_column(String(4), default="")  # "A", "B" or ""
 
     plan: Mapped[WorkoutPlan] = relationship(back_populates="days")
@@ -223,7 +240,7 @@ class WorkoutSession(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     day_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    name_key: Mapped[str] = mapped_column(String(20), default="")
+    name_key: Mapped[str] = mapped_column(String(40), default="")
     suffix: Mapped[str] = mapped_column(String(4), default="")
     # [{"exercise_id", "sets", "rep_min", "rep_max", "timed", "rest_seconds"}, ...]
     items: Mapped[list[dict]] = mapped_column(JSON, default=list)

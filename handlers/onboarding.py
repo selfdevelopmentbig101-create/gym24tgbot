@@ -137,10 +137,9 @@ async def advance(event: Message | CallbackQuery, state: FSMContext,
 
         footer = ""
         # Equipment, level, days or injuries changed: the old plan no longer fits.
-        if step in plans.PLAN_FIELDS and getattr(profile, step) != old_value \
-                and await plans.get_plan(session, user) is not None:
-            if await plans.generate_for_user(session, user) is not None:
-                footer = t("plan_rebuilt")
+        if getattr(profile, step) != old_value and await plans.get_plan(session, user) is not None \
+                and await plans.rebuild_for_profile(session, user, {step}):
+            footer = t("plan_rebuilt")
         await show_profile(event, profile, t("profile_updated"), footer)
         return
 
