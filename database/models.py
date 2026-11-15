@@ -48,7 +48,9 @@ class User(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     # Telegram IDs can exceed 32 bits, hence BigInteger.
     telegram_id: Mapped[int] = mapped_column(BigInteger, unique=True, index=True)
-    language_code: Mapped[str] = mapped_column(String(8), default="en")
+    # Language the user chose ("en", "ru", "uz"). None = never chosen, so /start
+    # asks first. The single source of truth for both the bot and the Mini App.
+    language: Mapped[str | None] = mapped_column(String(5), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     # Set when the user accepts the health disclaimer; onboarding needs it.
     disclaimer_accepted_at: Mapped[datetime | None] = mapped_column(

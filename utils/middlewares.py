@@ -7,7 +7,6 @@ Middlewares run before every handler.
 """
 import logging
 import time
-from collections import deque
 from typing import Any, Awaitable, Callable
 
 from aiogram import BaseMiddleware
@@ -17,6 +16,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from database.models import User
 
+from utils.rate_limit import SlidingWindowLimiter
 from utils.texts import set_language, t
 
 logger = logging.getLogger(__name__)
@@ -37,7 +37,7 @@ class DbSessionMiddleware(BaseMiddleware):
 class LanguageMiddleware(BaseMiddleware):
     """
     Pick the language for this update: the user's saved choice, otherwise
-    their Telegram app language. Must run after DbSessionMiddleware.
+    their Telegram app language (not stored). Must run after DbSessionMiddleware.
     """
 
     async def __call__(self, handler: Handler, event: TelegramObject, data: dict[str, Any]) -> Any:
@@ -45,7 +45,7 @@ class LanguageMiddleware(BaseMiddleware):
         code = None
         if tg_user is not None:
             code = await data["session"].scalar(
-                select(User.language_code).where(User.telegram_id == tg_user.id))
+                select(User.language).where(User.telegram_id == tg_user.id))
             code = code or tg_user.language_code
         set_language(code)
         return await handler(event, data)
@@ -53,34 +53,14 @@ class LanguageMiddleware(BaseMiddleware):
 
 class RateLimitMiddleware(BaseMiddleware):
     """
-    Sliding window: at most `max_events` per `window` seconds per user.
+    At most `max_events` per `window` seconds per user (utils/rate_limit.py).
     Extra events are dropped; the user is warned once per window.
-    In-memory, which is fine for a single bot process (use Redis if you scale out).
     """
 
     def __init__(self, max_events: int, window: float):
-        self.max_events = max_events
         self.window = window
-        self._events: dict[int, deque[float]] = {}
+        self.limiter = SlidingWindowLimiter(max_events, window)
         self._warned_at: dict[int, float] = {}
-
-    def _is_limited(self, user_id: int, now: float) -> bool:
-        events = self._events.setdefault(user_id, deque())
-        while events and now - events[0] > self.window:
-            events.popleft()
-        if len(events) >= self.max_events:
-            return True
-        events.append(now)
-        return False
-
-    def _cleanup(self, now: float) -> None:
-        """Forget idle users so memory doesn't grow forever."""
-        if len(self._events) < 10_000:
-            return
-        idle = [uid for uid, ev in self._events.items() if not ev or now - ev[-1] > self.window]
-        for uid in idle:
-            self._events.pop(uid, None)
-            self._warned_at.pop(uid, None)
 
     async def __call__(self, handler: Handler, event: TelegramObject, data: dict[str, Any]) -> Any:
         user = getattr(event, "from_user", None)
@@ -88,8 +68,7 @@ class RateLimitMiddleware(BaseMiddleware):
             return await handler(event, data)
 
         now = time.monotonic()
-        self._cleanup(now)
-        if not self._is_limited(user.id, now):
+        if self.limiter.hit(user.id, now):
             return await handler(event, data)
 
         logger.warning("Rate limit hit (user %s)", user.id)

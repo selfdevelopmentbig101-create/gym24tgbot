@@ -238,7 +238,7 @@ def make_notifier(bot: Bot, session_factory: async_sessionmaker):
             settings = await session.get(ReminderSettings, user_id)
             if user is None or user.profile is None or settings is None:
                 return
-            set_language(user.language_code)  # runs outside an update, so set it here
+            set_language(user.language)  # runs outside an update, so set it here
             today = reminders.local_now(settings).date()
             try:
                 if kind in ("workout", "resched"):

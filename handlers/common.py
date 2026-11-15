@@ -22,7 +22,7 @@ router = Router(name="common")
 @router.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext, session: AsyncSession) -> None:
     user = await users.get_or_create_user(
-        session, message.from_user.id, message.from_user.language_code
+        session, message.from_user.id
     )
 
     if user.profile is not None:
@@ -47,7 +47,7 @@ async def cmd_start(message: Message, state: FSMContext, session: AsyncSession) 
 async def on_accept_disclaimer(callback: CallbackQuery, state: FSMContext,
                                session: AsyncSession) -> None:
     user = await users.get_or_create_user(
-        session, callback.from_user.id, callback.from_user.language_code
+        session, callback.from_user.id
     )
     await callback.answer()
     # Keep the disclaimer text visible, just remove the button.
@@ -101,10 +101,8 @@ async def on_language(callback: CallbackQuery, callback_data: LangCB, bot: Bot,
     if callback_data.code not in SUPPORTED_LANGUAGES:
         await callback.answer(t("stale_button"))
         return
-    user = await users.get_or_create_user(session, callback.from_user.id,
-                                          callback.from_user.language_code)
-    user.language_code = callback_data.code
-    await session.commit()
+    user = await users.get_or_create_user(session, callback.from_user.id)
+    await users.set_language(session, user, callback_data.code)
     lang = set_language(callback_data.code)  # the rest of this reply uses the new language
     await callback.answer()
     try:

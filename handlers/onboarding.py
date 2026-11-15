@@ -153,7 +153,7 @@ async def advance(event: Message | CallbackQuery, state: FSMContext,
         return
 
     # Last step: save everything in one go, then build the first plan.
-    user = await users.get_or_create_user(session, telegram_id, event.from_user.language_code)
+    user = await users.get_or_create_user(session, telegram_id)
     profile = await users.save_profile(session, user, answers)
     await state.clear()
     logger.info("Onboarding completed")

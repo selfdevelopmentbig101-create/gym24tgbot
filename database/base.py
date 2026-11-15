@@ -19,10 +19,15 @@ def make_engine(url: str) -> AsyncEngine:
     if url.startswith("sqlite"):
         # SQLite ignores foreign keys (and ON DELETE CASCADE) unless switched on
         # per connection. /deleteme relies on cascades, so this matters.
+        # WAL + busy_timeout let the bot and the API (two processes) share one
+        # database file without "database is locked" errors.
         @event.listens_for(engine.sync_engine, "connect")
-        def _enable_sqlite_fk(dbapi_conn, _record):
+        def _sqlite_pragmas(dbapi_conn, _record):
             cursor = dbapi_conn.cursor()
             cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.execute("PRAGMA busy_timeout=5000")
+            if ":memory:" not in url:
+                cursor.execute("PRAGMA journal_mode=WAL")
             cursor.close()
 
     return engine

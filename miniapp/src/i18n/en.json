@@ -1,0 +1,20 @@
+{
+  "app_name": "Gym24",
+  "setup_title": "Setup check",
+  "setup_subtitle": "Stage 0: making sure the Mini App, the API and your account are connected.",
+  "check_telegram": "Opened inside Telegram",
+  "check_signature": "Login verified by the server",
+  "check_account": "Account found",
+  "hello": "Hi, {name}!",
+  "profile_done": "Profile complete",
+  "profile_missing": "Profile not set up yet (onboarding comes in Stage 2)",
+  "language_title": "Language",
+  "language_hint": "Shared with the bot: change it here or with /language.",
+  "loading": "Connecting…",
+  "retry": "Try again",
+  "error_outside": "Open Gym24 from the bot in Telegram (menu button or the Open Gym24 button).",
+  "error_auth": "Your login couldn't be verified. Close the app and open it again from the bot.",
+  "error_network": "No connection to the server. Check that the API and the tunnel are running.",
+  "error_rate": "Too many requests. Wait a moment and try again.",
+  "error_generic": "Something went wrong. Please try again."
+}

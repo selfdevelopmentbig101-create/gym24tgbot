@@ -14,7 +14,7 @@ VALID = {
 
 async def test_save_and_update_profile(session_factory):
     async with session_factory() as session:
-        user = await users.get_or_create_user(session, 111, "en")
+        user = await users.get_or_create_user(session, 111)
         profile = await users.save_profile(session, user, VALID)
         assert profile.injuries == ["knee", "shoulder"]  # de-duplicated and sorted
 

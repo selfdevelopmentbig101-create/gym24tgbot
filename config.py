@@ -44,5 +44,16 @@ class Config:
     # Empty = Mini App buttons are hidden.
     webapp_url: str = field(default_factory=lambda: os.getenv("WEBAPP_URL", "").strip())
 
+    # ----- Gym24 Mini App + API -----
+    # Public HTTPS address of the new Mini App (the API serves it), e.g. your tunnel URL.
+    # When set, the bot makes it the chat menu button on start.
+    miniapp_url: str = field(default_factory=lambda: os.getenv("MINIAPP_URL", "").strip().rstrip("/"))
+    # Mini App login data (initData) older than this is rejected (seconds).
+    init_data_max_age: int = field(
+        default_factory=lambda: int(os.getenv("INIT_DATA_MAX_AGE", str(24 * 3600)))
+    )
+    # API requests per user per minute.
+    api_rate_limit: int = field(default_factory=lambda: int(os.getenv("API_RATE_LIMIT", "120")))
+
 
 config = Config()

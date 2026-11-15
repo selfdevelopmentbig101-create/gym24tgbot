@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database.enums import Diet, Equipment, Experience, Goal, Injury, Sex
 from database.models import Profile, User, utcnow
 from services import validation
+from utils.texts import SUPPORTED_LANGUAGES
 
 logger = logging.getLogger(__name__)
 
@@ -41,19 +42,25 @@ async def get_user(session: AsyncSession, telegram_id: int) -> User | None:
     return await session.scalar(select(User).where(User.telegram_id == telegram_id))
 
 
-async def get_or_create_user(
-    session: AsyncSession, telegram_id: int, language_code: str | None = None
-) -> User:
+async def get_or_create_user(session: AsyncSession, telegram_id: int) -> User:
     user = await get_user(session, telegram_id)
     if user is None:
         # profile=None marks the relationship as loaded, so reading user.profile
         # later doesn't trigger a lazy load (not allowed with async SQLAlchemy).
-        user = User(
-            telegram_id=telegram_id, language_code=(language_code or "en")[:8], profile=None
-        )
+        # language stays None until the user picks one.
+        user = User(telegram_id=telegram_id, profile=None)
         session.add(user)
         await session.commit()
         logger.info("New user registered (internal id=%s)", user.id)
+    return user
+
+
+async def set_language(session: AsyncSession, user: User, code: str) -> User:
+    """Save the user's chosen language (used by both the bot and the API)."""
+    if code not in SUPPORTED_LANGUAGES:
+        raise ValueError(f"Unsupported language: {code}")
+    user.language = code
+    await session.commit()
     return user
 
 

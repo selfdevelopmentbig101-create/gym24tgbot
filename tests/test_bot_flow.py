@@ -780,7 +780,7 @@ async def test_language_switch_and_telegram_language(env):
     await ru.tap("O‘zbekcha")
     assert "O‘zbekcha" not in ru.last_text()
     async with env["session_factory"]() as s:
-        assert (await users.get_user(s, ru.user_id)).language_code == "uz"
+        assert (await users.get_user(s, ru.user_id)).language == "uz"
     assert any(type(c).__name__ == "SetMyCommands" and c.scope is not None
                for c in ru.session.calls)
     await ru.send("/help")

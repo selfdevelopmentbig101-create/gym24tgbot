@@ -12,11 +12,13 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import ErrorEvent
+from aiogram.exceptions import TelegramBadRequest
+from aiogram.types import ErrorEvent, MenuButtonWebApp, WebAppInfo
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from config import config
-from database.base import create_tables, make_engine, make_session_factory
+from database.base import make_engine, make_session_factory
+from database.migrate import prepare_database
 from handlers import get_routers
 from handlers.reminders import make_notifier
 from services.exercise_import import ExerciseDataError, import_exercises, load_exercises_file
@@ -65,6 +67,25 @@ def create_dispatcher(session_factory: async_sessionmaker,
     return dp
 
 
+async def set_miniapp_menu_button(bot: Bot) -> None:
+    """
+    Make the chat menu button (left of the message box) open the Gym24 Mini App.
+    Done here instead of in BotFather, so a new tunnel URL only needs a .env change.
+    The menu button sends signed initData (a reply-keyboard button would not).
+    """
+    if not config.miniapp_url:
+        return
+    if not config.miniapp_url.startswith("https://"):
+        logger.warning("MINIAPP_URL must start with https:// (Telegram requires HTTPS)")
+        return
+    try:
+        await bot.set_chat_menu_button(menu_button=MenuButtonWebApp(
+            text="Gym24", web_app=WebAppInfo(url=config.miniapp_url)))
+        logger.info("Menu button opens the Mini App at %s", config.miniapp_url)
+    except TelegramBadRequest as error:
+        logger.warning("Could not set the Mini App menu button: %s", error)
+
+
 async def main() -> None:
     setup_logging(config.log_level)
 
@@ -73,7 +94,7 @@ async def main() -> None:
         sys.exit(1)
 
     engine = make_engine(config.database_url)
-    await create_tables(engine)
+    await prepare_database(engine)  # applies migrations (and adopts old databases once)
     session_factory = make_session_factory(engine)
 
     # Keep the exercises table in sync with data/core_exercises.json.
@@ -101,6 +122,7 @@ async def main() -> None:
 
     try:
         await set_default_commands(bot)
+        await set_miniapp_menu_button(bot)
         logger.info("Bot started")
         await dp.start_polling(bot)
     finally:

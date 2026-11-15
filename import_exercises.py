@@ -12,7 +12,8 @@ import asyncio
 import sys
 
 from config import config
-from database.base import create_tables, make_engine, make_session_factory
+from database.base import make_engine, make_session_factory
+from database.migrate import prepare_database
 from services.exercise_import import (
     ExerciseDataError,
     import_exercises,
@@ -53,7 +54,7 @@ async def main() -> int:
         return 0
 
     engine = make_engine(config.database_url)
-    await create_tables(engine)
+    await prepare_database(engine)  # applies migrations (and adopts old databases once)
     async with make_session_factory(engine)() as session:
         report = await import_exercises(session, records)
     await engine.dispose()

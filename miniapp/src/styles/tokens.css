@@ -1,0 +1,93 @@
+/*
+ * Gym24 design tokens: the ONLY place colours, spacing, radii, fonts and motion
+ * are defined. Components use these variables, never raw values.
+ * Colours were sampled from the green reference images, then adjusted by eye.
+ */
+:root {
+  /* ---------- Colours ---------- */
+  --color-page: #0b0e0d;            /* behind everything (near-black) */
+  --color-bg: #151a18;              /* app screen */
+  --color-surface: #252c2a;         /* cards, option rows, inactive pills */
+  --color-surface-raised: #2d3532;  /* pressed / hovered card */
+  --color-surface-sunken: #111614;  /* icon circles inside cards */
+  --color-border: #2f3835;          /* hairlines between items */
+
+  --color-mint: #34f0c2;            /* accent start (teal/mint) */
+  --color-lime: #d6f000;            /* accent end (yellow-lime) */
+  --color-lime-button: #d9f21c;     /* round back button */
+  --color-pill-on: #8fec5e;         /* selected toggle pill (cm/kg) */
+  --gradient-accent: linear-gradient(90deg, var(--color-mint) 0%, var(--color-lime) 100%);
+
+  --color-text: #ffffff;
+  --color-text-muted: #9ba3a0;      /* secondary text, ruler numbers */
+  --color-text-subtle: #6b7370;     /* hints, disabled */
+  --color-text-on-accent: #0b0e0d;  /* text on gradient buttons */
+
+  --color-calories: #34f0c2;        /* result-card icons */
+  --color-protein: #3fd9e8;
+  --color-carbs: #f2a33a;
+  --color-fat: #d6f000;
+
+  --color-success: #34f0c2;
+  --color-warning: #f5c84c;         /* energy warnings (never blocking) */
+  --color-danger: #ff6b6b;
+
+  /* Thin glowing outline around the screen + soft glow at the bottom edge */
+  --frame-outline: rgba(52, 240, 194, 0.45);
+  --frame-glow: 0 0 22px rgba(52, 240, 194, 0.18);
+  --glow-bottom: radial-gradient(55% 32% at 50% 102%,
+      rgba(214, 240, 0, 0.75) 0%, rgba(120, 236, 120, 0.45) 35%,
+      rgba(52, 240, 194, 0.18) 60%, transparent 80%);
+
+  /* ---------- Typography ---------- */
+  /* Montserrat: geometric like Poppins, but also has Cyrillic (Poppins doesn't). */
+  --font-family: "Montserrat Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-size-display: 48px;        /* big ruler number */
+  --font-size-title: 26px;          /* centered question titles */
+  --font-size-h2: 20px;
+  --font-size-body: 16px;
+  --font-size-small: 14px;
+  --font-size-caption: 12px;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --line-height-tight: 1.2;
+  --line-height-body: 1.45;
+
+  /* ---------- Spacing (4-point scale) ---------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --screen-padding: 20px;
+
+  /* ---------- Shape ---------- */
+  --radius-sm: 12px;
+  --radius-md: 18px;                /* cards, option rows */
+  --radius-lg: 24px;
+  --radius-pill: 999px;             /* buttons, toggles */
+  --tap-target: 48px;               /* minimum touch size */
+  --button-height: 56px;
+  --icon-circle: 40px;
+  --round-button: 48px;             /* back (lime) and close (outlined) */
+
+  --shadow-card: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --shadow-button: 0 6px 20px rgba(52, 240, 194, 0.25);
+
+  /* ---------- Motion ---------- */
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --duration-fast: 150ms;
+  --duration-base: 250ms;
+  --duration-slow: 400ms;
+
+  /* ---------- Safe areas (Telegram sets the --tg-* variables) ---------- */
+  --safe-top: calc(var(--tg-safe-area-inset-top, env(safe-area-inset-top, 0px)) +
+                   var(--tg-content-safe-area-inset-top, 0px));
+  --safe-bottom: calc(var(--tg-safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) +
+                      var(--tg-content-safe-area-inset-bottom, 0px));
+}

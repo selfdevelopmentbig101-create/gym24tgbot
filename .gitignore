@@ -8,3 +8,9 @@ __pycache__/
 *.pyc
 .pytest_cache/
 assets/cache/
+
+# Mini App build artefacts
+miniapp/node_modules/
+miniapp/dist/
+*.db-wal
+*.db-shm
