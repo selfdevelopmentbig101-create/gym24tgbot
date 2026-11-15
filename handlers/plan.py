@@ -1,15 +1,20 @@
-"""/plan: show the weekly plan, open a day's exercise cards, regenerate."""
+"""/plan: show the weekly plan, open a day's exercise cards, regenerate.
+
+Stage 4B: day names given in the Mini App's split editor are shown here too, and
+the overview has an inline "Open Gym24" button that opens the Plan tab (inline
+web_app buttons carry signed initData; reply-keyboard ones don't).
+"""
 import html
 
 from aiogram import F, Router
 from aiogram.filters import Command
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database.models import WorkoutPlan
+from database.models import PlanDay, WorkoutPlan
 from handlers.cards import day_label, format_reps, plan_card, show_card
 from handlers.onboarding import send_or_edit
-from keyboards.menu import MenuButton
+from keyboards.menu import MenuButton, open_app_button
 from keyboards.exercises import PlanCB, plan_keyboard
 from services import plans, users
 from utils.texts import t
@@ -17,10 +22,15 @@ from utils.texts import t
 router = Router(name="plan")
 
 
+def day_name(day: PlanDay) -> str:
+    """The name the user gave the day in the Mini App, or the default one ("Upper A")."""
+    return day.title or day_label(day.name_key, day.suffix)
+
+
 def format_plan(plan: WorkoutPlan) -> str:
     parts = [t("plan_header", split=t(f"split_{plan.split}"), days=len(plan.days))]
     for day in plan.days:
-        lines = [t("plan_day_header", n=day.day_index + 1, name=day_label(day.name_key, day.suffix))]
+        lines = [t("plan_day_header", n=day.day_index + 1, name=html.escape(day_name(day)))]
         for entry in day.exercises:
             lines.append(t("plan_line", name=html.escape(entry.exercise.name),
                            sets=entry.sets, reps=format_reps(entry)))
@@ -29,8 +39,12 @@ def format_plan(plan: WorkoutPlan) -> str:
     return "\n\n".join(parts)
 
 
-def plan_markup(plan: WorkoutPlan):
-    return plan_keyboard([day_label(d.name_key, d.suffix) for d in plan.days])
+def plan_markup(plan: WorkoutPlan) -> InlineKeyboardMarkup:
+    markup = plan_keyboard([day_name(d) for d in plan.days])
+    app_button = open_app_button("plan")  # the Plan tab: calendar, programs, split editor
+    if app_button is None:
+        return markup
+    return InlineKeyboardMarkup(inline_keyboard=[*markup.inline_keyboard, [app_button]])
 
 
 async def _load_user(event: Message | CallbackQuery, session: AsyncSession):

@@ -1,11 +1,23 @@
 /*
  * Tiny path router (no dependency). Paths match the bot's links, e.g. MINIAPP_URL/train.
  * The API serves index.html for any path, so reloads and deep links work.
+ *
+ *   /                      home
+ *   /plan                  Plan tab (calendar, current program, details)
+ *   /plan/edit[/{dayId}]   split editor (optionally opened on one day)
+ *   /plan/programs         all programs (Current / Available / Created)
+ *   /plan/programs/new     create a program
+ *   /train                 exercise library
+ *   /exercise/{id}         exercise detail
  */
 import { useEffect, useState } from "react";
 
 export type Route =
   | { name: "home" }
+  | { name: "plan" }
+  | { name: "planEdit"; day?: number }
+  | { name: "programs" }
+  | { name: "programNew" }
   | { name: "library" }
   | { name: "exercise"; id: string };
 
@@ -13,12 +25,24 @@ export function parse(path: string): Route {
   const parts = path.replace(/\/+$/, "").split("/").filter(Boolean);
   if (parts[0] === "train" && parts.length === 1) return { name: "library" };
   if (parts[0] === "exercise" && parts[1]) return { name: "exercise", id: decodeURIComponent(parts[1]) };
+  if (parts[0] === "plan") {
+    if (parts[1] === "edit") {
+      const day = Number(parts[2]);
+      return Number.isInteger(day) && day > 0 ? { name: "planEdit", day } : { name: "planEdit" };
+    }
+    if (parts[1] === "programs") return parts[2] === "new" ? { name: "programNew" } : { name: "programs" };
+    return { name: "plan" };
+  }
   return { name: "home" };
 }
 
 export function pathOf(route: Route): string {
   switch (route.name) {
     case "home": return "/";
+    case "plan": return "/plan";
+    case "planEdit": return "/plan/edit" + (route.day ? "/" + route.day : "");
+    case "programs": return "/plan/programs";
+    case "programNew": return "/plan/programs/new";
     case "library": return "/train";
     case "exercise": return "/exercise/" + encodeURIComponent(route.id);
   }

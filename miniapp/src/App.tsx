@@ -2,10 +2,13 @@
  * App shell. Startup: verify login (GET /api/me) and load settings, then
  *   profile incomplete -> Onboarding (whatever the link)
  *   profile complete   -> the screen for the URL path, with the bottom tab bar:
- *     /                 Home (daily targets until the real Home tab, Stage 7)
- *     /train            Train: exercise library (the workout logger joins it in Stage 5)
- *     /exercise/{id}    exercise detail
- * Unbuilt tabs (Plan, Stats, Profile) stay hidden.
+ *     /                     Home (daily targets until the real Home tab, Stage 7)
+ *     /plan                 Plan: calendar, current program, details, weekly volume
+ *     /plan/edit[/{day}]    split editor with the energy bar
+ *     /plan/programs[/new]  all programs, create a program
+ *     /train                Train: exercise library (the workout logger joins it in Stage 5)
+ *     /exercise/{id}        exercise detail
+ * Unbuilt tabs (Stats, Profile) stay hidden.
  */
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -19,7 +22,11 @@ import { TabBar } from "./components/TabBar";
 import { ExerciseDetail } from "./screens/ExerciseDetail";
 import { Library } from "./screens/Library";
 import { Onboarding } from "./screens/Onboarding";
+import { Plan } from "./screens/Plan";
 import { PlanReady } from "./screens/PlanReady";
+import { ProgramNew } from "./screens/ProgramNew";
+import { Programs } from "./screens/Programs";
+import { SplitEditor } from "./screens/SplitEditor";
 
 const LANGUAGES: { code: LanguageCode; label: string }[] = [
   { code: "en", label: "English" },
@@ -105,6 +112,14 @@ export function App() {
       screen = <Library t={t} hasProfile locale={locale} />;
     } else if (route.name === "exercise") {
       screen = <ExerciseDetail id={route.id} t={t} attribution={state.config.attribution} />;
+    } else if (route.name === "plan") {
+      screen = <Plan t={t} locale={locale} />;
+    } else if (route.name === "planEdit") {
+      screen = <SplitEditor key={route.day ?? 0} initialDay={route.day} t={t} />;
+    } else if (route.name === "programs") {
+      screen = <Programs t={t} />;
+    } else if (route.name === "programNew") {
+      screen = <ProgramNew t={t} />;
     } else {
       const picker = (
         <section className="language-row">
