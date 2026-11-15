@@ -4,6 +4,7 @@ import "@fontsource-variable/montserrat";
 import "./styles/tokens.css";
 import "./styles/global.css";
 import "./App.css";
+import "./screens.css";
 import { App } from "./App";
 import { initTelegram } from "./lib/telegram";
 

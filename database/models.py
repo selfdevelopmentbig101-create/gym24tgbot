@@ -98,6 +98,8 @@ class Profile(Base):
     # Deload week: lighter weights and fewer sets until this local date (exclusive).
     deload_until: Mapped[date | None] = mapped_column(Date, nullable=True)
     deload_offered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Optional goal weight (Mini App onboarding), used for the estimated goal date.
+    target_weight_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, onupdate=utcnow

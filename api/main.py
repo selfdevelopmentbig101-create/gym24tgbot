@@ -17,7 +17,8 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from api.routes import me, system
+from api.notify import Notifier, make_notifier, no_notifier
+from api.routes import me, profile, system
 from api.static import CachedStaticFiles, MiniAppFiles
 from config import config
 from database.base import make_engine, make_session_factory
@@ -33,7 +34,7 @@ MINIAPP_BUILD = ROOT / "miniapp" / "dist"
 
 
 def create_app(session_factory: async_sessionmaker | None = None,
-               bot_token: str | None = None) -> FastAPI:
+               bot_token: str | None = None, notifier: Notifier | None = None) -> FastAPI:
     """Build the app. Tests pass their own session factory and a fake token."""
 
     @asynccontextmanager
@@ -59,6 +60,10 @@ def create_app(session_factory: async_sessionmaker | None = None,
     app.state.init_data_max_age = config.init_data_max_age
     app.state.user_limiter = SlidingWindowLimiter(config.api_rate_limit, 60)
     app.state.auth_fail_limiter = SlidingWindowLimiter(20, 60)
+    # Chat message after Mini App onboarding. Tests pass their own (or get none).
+    if notifier is None:
+        notifier = make_notifier(app.state.bot_token) if session_factory is None else no_notifier
+    app.state.notifier = notifier
 
     @app.middleware("http")
     async def log_requests(request: Request, call_next):
@@ -75,6 +80,7 @@ def create_app(session_factory: async_sessionmaker | None = None,
 
     app.include_router(system.router)
     app.include_router(me.router)
+    app.include_router(profile.router)
 
     # Exercise images (public, no user data), cached for a week.
     app.mount("/static/exercises",

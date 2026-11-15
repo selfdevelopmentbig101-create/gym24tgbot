@@ -5,8 +5,11 @@ Calorie and protein calculator.
 2. TDEE = BMR x activity factor (based on training days).
 3. Add a moderate surplus for the goal, inside hard safety limits.
 4. Protein: 1.6-2.2 g per kg of body weight, depending on goal.
+5. Fat 25% of calories (at least 0.6 g/kg); carbs fill the rest.
+6. Optional goal weight -> estimated goal date at a healthy gain rate.
 """
 from dataclasses import dataclass, field
+from datetime import date, timedelta
 
 from database.enums import Goal, Sex
 
@@ -17,6 +20,8 @@ MIN_CALORIES = {Sex.MALE: 1500, Sex.FEMALE: 1200, Sex.UNSPECIFIED: 1350}
 
 PROTEIN_MIN_G_PER_KG = 1.6
 PROTEIN_MAX_G_PER_KG = 2.2
+FAT_SHARE = 0.25
+FAT_MIN_G_PER_KG = 0.6
 
 # Gym days alone don't make someone "very active", so these factors are
 # deliberately conservative. Weekly weigh-ins will fine-tune the target later.
@@ -53,6 +58,8 @@ class NutritionTargets:
     weekly_gain_kg: tuple[float, float]
     # Text keys for extra advice (see utils/texts.py), e.g. "note_high_bmi_bulk".
     notes: list[str] = field(default_factory=list)
+    fat_g: int = 0
+    carbs_g: int = 0
 
 
 def clamp(value: float, low: float, high: float) -> float:
@@ -119,6 +126,7 @@ def calculate_targets(
     protein = round(protein_weight * g_per_kg / 5) * 5  # nearest 5 g
 
     gain_low, gain_high = GOAL_WEEKLY_GAIN[goal]
+    fat, carbs = split_fat_carbs(calories, int(protein), protein_weight)
 
     return NutritionTargets(
         bmr=round(bmr),
@@ -130,7 +138,45 @@ def calculate_targets(
         protein_basis_kg=round(protein_weight, 1),
         weekly_gain_kg=(round(weight_kg * gain_low, 2), round(weight_kg * gain_high, 2)),
         notes=notes,
+        fat_g=fat,
+        carbs_g=carbs,
     )
+
+
+def split_fat_carbs(calories: int, protein_g: int, protein_basis_kg: float) -> tuple[int, int]:
+    """
+    Fat: 25% of calories, but at least 0.6 g/kg (hormone health).
+    Carbs: whatever calories are left after protein (4 kcal/g) and fat (9 kcal/g).
+    """
+    fat = max(calories * FAT_SHARE / 9, FAT_MIN_G_PER_KG * protein_basis_kg)
+    fat = round(fat / 5) * 5
+    carbs = max(0, round((calories - protein_g * 4 - fat * 9) / 4 / 5) * 5)
+    return int(fat), int(carbs)
+
+
+@dataclass(frozen=True)
+class GoalEstimate:
+    target_weight_kg: float
+    to_gain_kg: float
+    estimated_date: date   # at the middle of the healthy gain rate
+    earliest_date: date    # at the fastest healthy rate
+    latest_date: date      # at the slowest healthy rate
+
+
+def estimate_goal_date(weight_kg: float, target_weight_kg: float | None,
+                       weekly_gain_kg: tuple[float, float], today: date) -> GoalEstimate | None:
+    """None when there's no target, it's already reached, or the goal gains no weight (recomp)."""
+    low, high = weekly_gain_kg
+    if target_weight_kg is None or target_weight_kg <= weight_kg or low <= 0 or high <= 0:
+        return None
+    to_gain = target_weight_kg - weight_kg
+
+    def after(rate: float) -> date:
+        return today + timedelta(days=round(to_gain / rate * 7))
+
+    return GoalEstimate(target_weight_kg=round(target_weight_kg, 1), to_gain_kg=round(to_gain, 1),
+                        estimated_date=after((low + high) / 2), earliest_date=after(high),
+                        latest_date=after(low))
 
 
 def targets_for_profile(profile) -> NutritionTargets:

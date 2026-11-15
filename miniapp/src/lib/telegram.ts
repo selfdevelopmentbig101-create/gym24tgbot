@@ -15,6 +15,7 @@ interface TelegramWebApp {
   version: string;
   platform: string;
   ready(): void;
+  close(): void;
   expand(): void;
   isVersionAtLeast(version: string): boolean;
   setHeaderColor(color: string): void;
@@ -74,4 +75,32 @@ function safe(fn: () => void) {
   } catch {
     /* older clients without haptics */
   }
+}
+
+/** Close the Mini App and go back to the chat (no-op in a normal browser). */
+export function closeApp(): void {
+  safe(() => getWebApp()?.close());
+}
+
+/**
+ * Show Telegram's own Back button (top bar / Android back) while `onBack` is set.
+ * Returns a cleanup function, for use in an effect.
+ */
+export function bindNativeBack(onBack: (() => void) | null): () => void {
+  const app = getWebApp();
+  if (!app || !onBack || !app.isVersionAtLeast("6.1")) {
+    safe(() => app?.BackButton.hide());
+    return () => {};
+  }
+  app.BackButton.onClick(onBack);
+  app.BackButton.show();
+  return () => {
+    app.BackButton.offClick(onBack);
+    app.BackButton.hide();
+  };
+}
+
+/** Telegram's user id, ONLY for keying local drafts on this device. Never sent to the API. */
+export function localUserKey(): string {
+  return String(getWebApp()?.initDataUnsafe.user?.id ?? "anon");
 }

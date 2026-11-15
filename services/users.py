@@ -12,6 +12,9 @@ from utils.texts import SUPPORTED_LANGUAGES
 
 logger = logging.getLogger(__name__)
 
+# Optional profile fields: may be left out of save_profile().
+OPTIONAL_PROFILE_FIELDS = ("target_weight_kg",)
+
 PROFILE_FIELDS = (
     "goal", "age", "sex", "height_cm", "weight_kg", "experience",
     "training_days", "equipment", "injuries", "diet",
@@ -30,6 +33,8 @@ def clean_profile_value(field_name: str, value):
         "height_cm": validation.validate_height,
         "weight_kg": validation.validate_weight,
         "training_days": validation.validate_training_days,
+        # Optional (Mini App onboarding); None clears it.
+        "target_weight_kg": lambda v: None if v is None else validation.validate_weight(v),
         # Keep only known injury codes, without duplicates, in a stable order.
         "injuries": lambda items: sorted({Injury(i).value for i in items or []}),
     }
@@ -75,6 +80,8 @@ async def save_profile(session: AsyncSession, user: User, data: dict) -> Profile
     if missing:
         raise ValueError(f"Missing profile fields: {missing}")
     clean = {name: clean_profile_value(name, data[name]) for name in PROFILE_FIELDS}
+    clean.update({name: clean_profile_value(name, data[name])
+                  for name in OPTIONAL_PROFILE_FIELDS if name in data})
 
     if user.profile is None:
         user.profile = Profile(**clean)

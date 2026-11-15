@@ -96,9 +96,13 @@ Reply keyboard (main) ✅                      Settings submenu ✅
 Chat menu button "Gym24" ✅ ─► Mini App (Home)
 
 MINI APP
-Profile incomplete ─► Onboarding (1 question per screen, n of N)
-                       goal · age · sex · height · weight · experience · days/week
-                       · equipment · injuries · diet · disclaimer ─► "Your plan is ready"
+Profile incomplete ─► Onboarding ✅ (1 question per screen, n of N, draft kept on the device)
+                       [language if not chosen] · goal · age · sex · height (cm/in) · weight (kg/lb)
+                       · goal weight (optional; not for recomposition) · experience · days/week
+                       · equipment · injuries · diet · [disclaimer if not accepted]
+                       ─► "Your custom plan is ready" ✅ (goal date + calories/protein/carbs/fat)
+                       ─► chat gets the main menu
+                       Until the Home tab exists, the targets screen is the app's main screen.
 Tabs:  Home │ Plan │ Train │ Stats │ Profile        (unbuilt tabs hidden)
 Home    greeting · character · next workout · weekly summary
 Plan    calendar · current program · program details · all programs
@@ -118,7 +122,7 @@ serves the app for any path, so the bot's inline buttons can link to a tab.
 | Stage | Change |
 |---|---|
 | 0 ✅ | Alembic migrations; `users.language` (empty = not chosen); `users.language_code` removed; SQLite WAL mode |
-| 2 | `profiles.target_weight_kg` (for the estimated goal date) |
+| 2 ✅ | `profiles.target_weight_kg` (optional goal weight, for the estimated goal date) |
 | 3 | `exercises.secondary_muscles`, `exercises.visual_type` ("images") |
 | 4 | `programs` (name, weeks, workouts/week, goal, status); plan days belong to a program |
 | 5 | set fields: RPE, warm-up flag, superset group, note per exercise |

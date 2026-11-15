@@ -62,6 +62,7 @@ async def test_phase1_database_is_adopted_and_keeps_data(db_url):
             "ALTER TABLE profiles DROP COLUMN kcal_offered_at",
             "ALTER TABLE profiles DROP COLUMN deload_until",
             "ALTER TABLE profiles DROP COLUMN deload_offered_at",
+            "ALTER TABLE profiles DROP COLUMN target_weight_kg",
             "ALTER TABLE exercises DROP COLUMN active",
             "ALTER TABLE exercises DROP COLUMN sort_order",
             "INSERT INTO users (id, telegram_id, created_at, disclaimer_accepted_at, language_code) "
@@ -90,4 +91,31 @@ async def test_phase1_database_is_adopted_and_keeps_data(db_url):
     assert diffs == []
 
     await prepare_database(engine)           # second start: already adopted
+    await engine.dispose()
+
+
+async def test_upgrade_from_0001_keeps_profiles(db_url):
+    """A database already on migrations gets later revisions applied in place."""
+    from alembic import command
+    from database.migrate import _alembic_config
+
+    engine = make_engine(db_url)
+    async with engine.begin() as conn:
+        await conn.run_sync(lambda c: command.upgrade(_alembic_config(c), "0001"))
+        await conn.execute(text(
+            "INSERT INTO users (id, telegram_id, created_at, trial_used) "
+            "VALUES (1, 4242, '2026-11-01 10:00:00', 0)"))
+        await conn.execute(text(
+            "INSERT INTO profiles (id, user_id, goal, age, sex, height_cm, weight_kg, experience, "
+            "training_days, equipment, injuries, diet, calorie_adjust, updated_at) VALUES "
+            "(1, 1, 'bulk', 30, 'female', 165, 60, 'beginner', 3, 'full_gym', '[]', 'none', 0, "
+            "'2026-11-01 10:02:00')"))
+
+    await prepare_database(engine)
+
+    version, diffs, _ = await _state(engine)
+    assert version == _head() and diffs == []
+    async with engine.connect() as conn:
+        row = (await conn.execute(text("SELECT goal, weight_kg, target_weight_kg FROM profiles"))).one()
+    assert tuple(row) == ("bulk", 60, None)
     await engine.dispose()

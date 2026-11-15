@@ -57,42 +57,6 @@
   font-size: var(--font-size-small);
 }
 
-.checks {
-  list-style: none;
-  padding: 0;
-  margin: var(--space-4) 0 0;
-  display: grid;
-  gap: var(--space-3);
-}
-
-.check {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  font-size: var(--font-size-small);
-}
-
-.check-badge {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  font-size: var(--font-size-caption);
-  font-weight: var(--font-weight-bold);
-}
-
-.check-ok {
-  background: var(--color-mint);
-  color: var(--color-text-on-accent);
-}
-
-.check-pending {
-  background: var(--color-surface-sunken);
-  color: var(--color-text-subtle);
-}
-
 .pills {
   display: flex;
   gap: var(--space-1);
