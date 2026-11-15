@@ -1010,3 +1010,31 @@ async def test_exercise_library_links_to_the_mini_app(env):
         assert "Barbell Bench Press" in u.last_text() or "Chest" in u.last_text()
     finally:
         object.__setattr__(config, "miniapp_url", "")
+
+
+async def test_custom_program_from_the_app_works_in_the_chat(env):
+    """A program built in the Mini App (custom day names) drives the chat's Plan and Workout."""
+    from config import config
+    from services import programs
+
+    u = FakeUser(env, 20202)
+    await onboard_intermediate(u)
+    async with env["session_factory"]() as s:
+        user = await users.get_user(s, u.user_id)
+        program = await programs.create_custom(s, user, "Mine", 4, 1, "hypertrophy", activate=False)
+        day = program.days[0]
+        await programs.update_day(s, program, day, name="Arms & <abs>")
+        await programs.add_exercise(s, user, program, day, "bicep-curl")
+        await programs.activate(s, user, await programs.reload(s, program))
+
+    object.__setattr__(config, "miniapp_url", "https://gym24.example.com")
+    try:
+        await u.send("📅 Plan")
+        assert "Arms &amp; &lt;abs&gt;" in u.last_text()          # escaped in the message
+        buttons = [b for row in u.last_markup().inline_keyboard for b in row]
+        assert any(b.text.endswith("Arms & <abs>") for b in buttons)   # plain on the button
+        assert buttons[-1].web_app.url == "https://gym24.example.com/plan"
+    finally:
+        object.__setattr__(config, "miniapp_url", "")
+    await u.send("🏋️ Workout")
+    assert "Arms &amp; &lt;abs&gt;" in u.last_text()

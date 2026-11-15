@@ -11,6 +11,7 @@ PLACEHOLDER = re.compile(r"{(\w+)}")
 def assert_valid_telegram_html(text: str) -> None:
     """Telegram rejects messages containing a bare '<', '>' or '&' outside of tags."""
     stripped = ALLOWED_TAGS.sub("", text)
+    stripped = re.sub(r"&(amp|lt|gt|quot|#[0-9]+);", "", stripped)  # escaped characters are fine
     bad = [ch for ch in "<>&" if ch in stripped]
     assert not bad, f"Unescaped {bad} in: {text!r}"
 

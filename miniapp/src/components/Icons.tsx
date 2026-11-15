@@ -62,3 +62,16 @@ export const Sliders = () => (
 export const ChevronRight = () => <Svg size={18}><path d="M9 6l6 6-6 6" /></Svg>;
 export const Info = () => <Svg size={20}><circle cx="12" cy="12" r="8.5" /><path d="M12 11v5M12 8v.01" /></Svg>;
 export const Swap = () => <Svg size={20}><path d="M7 7h11l-3-3M17 17H6l3 3" /></Svg>;
+export const Calendar = () => (
+  <Svg><rect x="4" y="5.5" width="16" height="14.5" rx="3" /><path d="M8 3.5v4M16 3.5v4M4 10h16" /></Svg>
+);
+export const ChevronLeft = () => <Svg size={18}><path d="M15 6l-6 6 6 6" /></Svg>;
+export const Plus = () => <Svg size={20}><path d="M12 5v14M5 12h14" /></Svg>;
+export const Minus = () => <Svg size={18}><path d="M5 12h14" /></Svg>;
+export const Up = () => <Svg size={18}><path d="M6 15l6-6 6 6" /></Svg>;
+export const Down = () => <Svg size={18}><path d="M6 9l6 6 6-6" /></Svg>;
+export const Trash = () => <Svg size={18}><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12" /></Svg>;
+export const Pencil = () => <Svg size={18}><path d="M5 19l1-4L16 5l3 3L9 18zM14 7l3 3" /></Svg>;
+export const Bolt = () => <Svg size={18}><path d="M13 3L5 14h6l-1 7 8-11h-6z" /></Svg>;
+export const Clock = () => <Svg size={18}><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></Svg>;
+export const Reset = () => <Svg size={18}><path d="M5 12a7 7 0 1 0 2-5M5 4v4h4" /></Svg>;

@@ -97,7 +97,7 @@ async def overview_view(session: AsyncSession, user: User, plan: WorkoutPlan, da
     lines += ["", t("workout_overview_footer")]
     if config.webapp_url:
         lines.append(t("workout_app_hint"))
-    labels = [day_label(d.name_key, d.suffix) for d in plan.days]
+    labels = [html.unescape(day_label(d.name_key, d.suffix)) for d in plan.days]  # button text
     return "\n".join(lines), overview_keyboard(day_index, labels)
 
 
