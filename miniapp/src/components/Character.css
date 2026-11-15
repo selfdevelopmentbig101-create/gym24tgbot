@@ -1,0 +1,98 @@
+/* Character (components/Character.tsx), its Home card and the celebration overlay. Tokens only. */
+
+.character { display: block; overflow: visible; }
+.character-celebrating { animation: char-bounce 1.2s var(--ease-out) infinite; }
+.character-tired { opacity: 0.9; }
+.character-sparkles { animation: char-twinkle 1.4s ease-in-out infinite; }
+
+@keyframes char-bounce {
+  0%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-6px); }
+}
+
+@keyframes char-twinkle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .character-celebrating,
+  .character-sparkles { animation: none; }
+}
+
+/* ---------- Home card (medium) ---------- */
+
+.char-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  width: 100%;
+  margin-bottom: var(--space-4);
+  border: 1px solid var(--frame-outline);
+  color: var(--color-text);
+  text-align: left;
+}
+
+.char-card-loading { min-height: 140px; }
+.char-info { display: flex; flex: 1; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.char-rank { font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); }
+.char-mood { color: var(--color-mint); }
+.char-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); font-size: var(--font-size-caption); color: var(--color-text-muted); }
+
+.xp-bar { display: block; height: 8px; border-radius: var(--radius-pill); background: var(--color-surface-sunken); overflow: hidden; }
+.xp-bar > span { display: block; height: 100%; border-radius: inherit; background: var(--gradient-accent); transition: width var(--duration-slow) var(--ease-out); }
+
+/* ---------- Celebration overlay ---------- */
+
+.celebration {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: var(--screen-padding);
+  background: rgba(0, 0, 0, 0.6);
+  animation: fade var(--duration-base) var(--ease-out);
+}
+
+.celebration-card {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  width: min(100%, 320px);
+  padding: var(--space-6);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg);
+  border: 1px solid var(--frame-outline);
+  box-shadow: var(--frame-glow);
+  text-align: center;
+}
+
+.celebration-card h2 { margin: 0; font-size: var(--font-size-h2); }
+.celebration-card .button-primary { width: 100%; }
+
+.confetti { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+
+.confetti i {
+  position: absolute;
+  top: -12px;
+  width: 8px;
+  height: 14px;
+  border-radius: 2px;
+  animation: confetti-fall 2.4s linear infinite;
+}
+
+@keyframes confetti-fall {
+  to { transform: translateY(110vh) rotate(540deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .confetti { display: none; }
+}
+
+/* Home: the card sits above the targets screen, with the same side padding. */
+.home-character { padding: var(--space-4) var(--screen-padding) 0; }
+.home-character .char-card { margin-bottom: 0; }

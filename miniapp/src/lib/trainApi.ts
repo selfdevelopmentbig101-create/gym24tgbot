@@ -93,6 +93,9 @@ export interface LogResult {
 
 export interface Summary {
   discarded: boolean;
+  xp_gained?: number;
+  level?: { index: number; key: string };
+  level_up?: boolean;
   minutes?: number;
   total_sets?: number;
   volume_kg?: number;

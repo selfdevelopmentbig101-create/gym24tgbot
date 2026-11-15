@@ -229,3 +229,5 @@
 .summary-list li { display: flex; flex-direction: column; gap: 2px; }
 .summary-list .exercise-name { white-space: normal; }
 .summary > .button-primary { width: 100%; margin: var(--space-2) 0 var(--space-4); }
+
+.summary-xp { margin: 0; text-align: center; font-size: var(--font-size-h2); font-weight: var(--font-weight-bold); background: var(--gradient-accent); -webkit-background-clip: text; background-clip: text; color: transparent; }

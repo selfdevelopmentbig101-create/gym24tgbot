@@ -9,6 +9,8 @@
  *     /workout              Train: workout-day screen (statuses, last time's numbers, Start)
  *     /workout/live         live logger (rest timer, supersets, notes, PRs, finish summary)
  *     /train                exercise library
+ *     /profile              Profile: character, level, XP, achievements, settings (Stage 6)
+ *     /profile/edit         edit profile answers
  *     /exercise/{id}        exercise detail
  * Unbuilt tabs (Stats, Profile) stay hidden.
  */
@@ -17,13 +19,16 @@ import {
   ApiError, getConfig, getMe, getTargets, setLanguage,
   type AppConfig, type LanguageCode, type Me, type Targets,
 } from "./lib/api";
-import { useRoute } from "./lib/router";
+import { useRoute, navigate } from "./lib/router";
 import { haptic } from "./lib/telegram";
 import { translate, type TextKey } from "./i18n";
 import { TabBar } from "./components/TabBar";
 import { ExerciseDetail } from "./screens/ExerciseDetail";
 import { Library } from "./screens/Library";
 import { Logger } from "./screens/Logger";
+import { Profile } from "./screens/Profile";
+import { ProfileEdit } from "./screens/ProfileEdit";
+import { CharacterCard } from "./components/CharacterCard";
 import { Onboarding } from "./screens/Onboarding";
 import { Plan } from "./screens/Plan";
 import { PlanReady } from "./screens/PlanReady";
@@ -128,6 +133,12 @@ export function App() {
       screen = <TrainDay t={t} />;
     } else if (route.name === "workoutLive") {
       screen = <Logger t={t} />;
+    } else if (route.name === "profile") {
+      screen = <Profile t={t} me={state.me} config={state.config} saving={saving}
+                        onLanguage={(code) => void chooseLanguage(code)}
+                        onDeleted={() => { navigate({ name: "home" }, { replace: true }); void load(); }} />;
+    } else if (route.name === "profileEdit") {
+      screen = <ProfileEdit t={t} config={state.config} />;
     } else {
       const picker = (
         <section className="language-row">
@@ -143,8 +154,13 @@ export function App() {
           </div>
         </section>
       );
-      screen = <PlanReady targets={state.targets} lang={lang} t={t} justFinished={state.justFinished}
-                          planReady={state.planReady} languagePicker={picker} />;
+      screen = (
+        <>
+          <div className="home-character"><CharacterCard t={t} /></div>
+          <PlanReady targets={state.targets} lang={lang} t={t} justFinished={state.justFinished}
+                     planReady={state.planReady} languagePicker={picker} />
+        </>
+      );
     }
     return (
       <div className="with-tabs">

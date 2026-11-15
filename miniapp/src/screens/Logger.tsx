@@ -526,6 +526,12 @@ function SummaryView({ summary, t }: { summary: Summary; t: T }) {
         <span className="summary-stat">{t("summary_sets", { n: summary.total_sets ?? 0 })}</span>
         <span className="summary-stat">{t("summary_volume", { n: Math.round(summary.volume_kg ?? 0) })}</span>
       </div>
+      {summary.xp_gained !== undefined && (
+        <p className="summary-xp">
+          {t("summary_xp", { n: summary.xp_gained })}
+          {summary.level_up && summary.level ? " · " + t("summary_level_up", { rank: t(("rank_" + summary.level.key) as TextKey) }) : ""}
+        </p>
+      )}
       {prs.length > 0 && (
         <section className="card summary-prs">
           <h2 className="card-title">🏆 {t("summary_prs")}</h2>

@@ -10,7 +10,8 @@ from datetime import timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.models import Exercise, SetLog, User, WorkoutSession
-from services import achievements, energy, plans, programs, reminders, workouts
+from services import achievements, energy, levels, plans, programs, reminders, workouts
+from services import xp_config
 from services import program_rules as rules
 from services.exercises import load_catalog
 from services.progression import Suggestion
@@ -210,7 +211,14 @@ async def finish_workout(session: AsyncSession, user: User, ws: WorkoutSession) 
         unlocked = [getattr(a, "code", str(a)) for a in (await achievements.check_new(session, user) or [])]
     except Exception:  # noqa: BLE001
         logger.exception("Could not check achievements after a Mini App workout")
+    # XP from this workout (the level itself is calculated from all your data).
+    prs = sum(1 for ex in summary.exercises for s in ex.sets if s.pr)
+    level = await levels.level_view(session, user)
+    goal_week = level["week_done"] == level["week_goal"]  # this workout completed the weekly goal
+    gained = xp_config.XP_PER_WORKOUT + prs * xp_config.XP_PER_PR + (xp_config.XP_PER_GOAL_WEEK if goal_week else 0)
+    before = levels.make_level(max(0, level["level"]["xp"] - gained))
     return {
+        "xp_gained": gained, "level": level["level"], "level_up": before.index < level["level"]["index"],
         "discarded": False, "minutes": summary.minutes, "total_sets": summary.total_sets,
         "volume_kg": summary.volume_kg,
         "prs": [ex.exercise.name for ex in summary.exercises if any(s.pr for s in ex.sets)],
