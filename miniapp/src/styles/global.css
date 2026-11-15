@@ -1,0 +1,66 @@
+/* Global layout: dark screen, glowing outline, bottom glow. Uses tokens.css only. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--color-page);
+  color: var(--color-text);
+  font-family: var(--font-family);
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+#root {
+  position: relative;
+  min-height: var(--tg-viewport-stable-height, 100vh);
+  background: var(--color-bg);
+  padding: calc(var(--safe-top) + var(--space-4)) var(--screen-padding)
+    calc(var(--safe-bottom) + var(--space-8));
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* The thin glowing outline around the whole screen. */
+#root::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  border: 1px solid var(--frame-outline);
+  border-radius: 28px;
+  box-shadow: var(--frame-glow), inset var(--frame-glow);
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* The soft green-to-lime glow at the bottom edge. */
+#root::after {
+  content: "";
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 45vh;
+  background: var(--glow-bottom);
+  pointer-events: none;
+  z-index: -1;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Gym Logger</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  /* Telegram passes the user's theme as CSS variables; fall back to a light theme. */
+  :root {
+    --bg: var(--tg-theme-bg-color, #ffffff);
+    --bg2: var(--tg-theme-secondary-bg-color, #f2f3f5);
+    --text: var(--tg-theme-text-color, #111111);
+    --hint: var(--tg-theme-hint-color, #8a8f98);
+    --accent: var(--tg-theme-button-color, #2b6cb0);
+    --accent-text: var(--tg-theme-button-text-color, #ffffff);
+    --ok: #38a169;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { margin: 0; font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+         background: var(--bg2); color: var(--text); padding-bottom: 90px; }
+  header { position: sticky; top: 0; z-index: 2; background: var(--bg); padding: 12px 16px 0;
+           box-shadow: 0 1px 0 rgba(0,0,0,.06); }
+  h1 { font-size: 18px; margin: 0 0 8px; }
+  .tabs { display: flex; gap: 4px; }
+  .tab { flex: 1; padding: 10px; border: 0; background: none; color: var(--hint); font-size: 15px;
+         border-bottom: 2px solid transparent; }
+  .tab.active { color: var(--accent); border-color: var(--accent); font-weight: 600; }
+  main { padding: 12px; }
+  .card { background: var(--bg); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+  .card.done { outline: 2px solid var(--ok); }
+  .row { display: flex; align-items: center; gap: 10px; }
+  .name { font-weight: 600; font-size: 16px; flex: 1; }
+  .meta { color: var(--hint); font-size: 13px; margin-top: 2px; }
+  .badge { font-size: 13px; color: var(--hint); white-space: nowrap; }
+  .card.done .badge { color: var(--ok); font-weight: 600; }
+  /* Exercise animation: crossfade between the start and peak images. */
+  .anim { position: relative; width: 100%; aspect-ratio: 1; max-height: 220px; margin: 10px 0;
+          background: #fff; border-radius: 10px; overflow: hidden; }
+  .anim img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+  .anim img.peak { animation: crossfade 2.4s ease-in-out infinite; }
+  @keyframes crossfade { 0%, 35% { opacity: 0; } 50%, 85% { opacity: 1; } 100% { opacity: 0; } }
+  .steppers { display: flex; gap: 10px; margin-top: 12px; }
+  .stepper { flex: 1; display: flex; align-items: center; background: var(--bg2); border-radius: 10px; }
+  .stepper button { width: 44px; height: 44px; border: 0; background: none; color: var(--accent);
+                    font-size: 22px; }
+  .stepper .val { flex: 1; text-align: center; font-weight: 600; font-size: 16px; }
+  .stepper .unit { display: block; font-size: 11px; color: var(--hint); font-weight: 400; }
+  .log { width: 100%; margin-top: 10px; padding: 12px; border: 0; border-radius: 10px;
+         background: var(--accent); color: var(--accent-text); font-size: 16px; font-weight: 600; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .chip { background: var(--bg2); border-radius: 16px; padding: 5px 10px; font-size: 14px; }
+  .chip button { border: 0; background: none; color: var(--hint); margin-left: 4px; font-size: 14px; }
+  .banner { background: var(--bg); border-radius: 14px; padding: 12px 14px; margin-bottom: 12px; font-size: 14px; }
+  #rest { position: fixed; left: 12px; right: 12px; bottom: 12px; background: var(--text); color: var(--bg);
+          border-radius: 14px; padding: 12px 16px; display: none; align-items: center; gap: 12px; z-index: 3; }
+  #rest.show { display: flex; }
+  #rest .time { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  #rest button { margin-left: auto; border: 0; background: none; color: inherit; opacity: .7; font-size: 14px; }
+  svg { width: 100%; height: 170px; display: block; }
+  .empty { text-align: center; color: var(--hint); padding: 40px 16px; }
+  #fallback { display: none; }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title">🏋️</h1>
+  <div class="tabs">
+    <button class="tab active" data-tab="workout" id="tab-workout"></button>
+    <button class="tab" data-tab="progress" id="tab-progress"></button>
+  </div>
+</header>
+<main>
+  <section id="workout"></section>
+  <section id="progress" hidden></section>
+  <button class="log" id="fallback"></button>
+</main>
+<div id="rest"><span id="rest-label"></span><span class="time" id="rest-time"></span><button id="rest-skip"></button></div>
+
+<script>
+"use strict";
+const tg = window.Telegram ? window.Telegram.WebApp : null;
+
+const I18N = {
+  en: { workout: "Workout", progress: "Progress", target: "Target", rest: "rest", last: "Last time",
+        first: "First time: pick a weight you could lift for about 2 more reps.", log: "Log set",
+        kg: "kg", reps: "reps", sec: "sec", bw: "BW", finish: "Finish and save ({n} sets)",
+        resting: "Rest", restOver: "Rest over!", skip: "Skip", deload: "🧘 Deload week: lighter weights, fewer sets.",
+        weight: "Body weight (kg)", e1rm: "estimated 1RM (kg)", premium: "⭐ Progress charts are a Premium feature. Open /premium in the bot.",
+        noData: "Not enough data for charts yet. Keep logging!", noPayload: "Open this app from the bot with /app.",
+        notFromKeyboard: "Saving only works when the app is opened with the button from /app in the bot.",
+        min: "min", s: "s" },
+  ru: { workout: "Тренировка", progress: "Прогресс", target: "Цель", rest: "отдых", last: "Прошлый раз",
+        first: "Первый раз: возьми вес, с которым смог бы сделать ещё ~2 повтора.", log: "Записать подход",
+        kg: "кг", reps: "повт.", sec: "сек", bw: "СВ", finish: "Завершить и сохранить ({n} подх.)",
+        resting: "Отдых", restOver: "Отдых окончен!", skip: "Пропустить", deload: "🧘 Разгрузочная неделя: веса легче, подходов меньше.",
+        weight: "Вес тела (кг)", e1rm: "расчётный 1ПМ (кг)", premium: "⭐ Графики прогресса доступны в Premium. Открой /premium в боте.",
+        noData: "Пока мало данных для графиков. Продолжай записывать!", noPayload: "Открой приложение из бота командой /app.",
+        notFromKeyboard: "Сохранение работает, только если приложение открыто кнопкой из /app в боте.",
+        min: "мин", s: "с" },
+  uz: { workout: "Mashg‘ulot", progress: "Natijalar", target: "Maqsad", rest: "dam", last: "Oldingi safar",
+        first: "Birinchi marta: yana ~2 marta ko‘tara oladigan vaznni tanlang.", log: "Setni yozish",
+        kg: "kg", reps: "marta", sec: "son", bw: "TV", finish: "Tugatish va saqlash ({n} set)",
+        resting: "Dam", restOver: "Dam tugadi!", skip: "O‘tkazish", deload: "🧘 Yengil hafta: vazn kamroq, setlar kamroq.",
+        weight: "Tana vazni (kg)", e1rm: "taxminiy 1RM (kg)", premium: "⭐ Natija grafiklari Premium’da. Botda /premium ni oching.",
+        noData: "Grafiklar uchun hali ma’lumot kam. Yozishda davom eting!", noPayload: "Ilovani botdan /app buyrug‘i bilan oching.",
+        notFromKeyboard: "Saqlash faqat ilova botdagi /app tugmasi orqali ochilganda ishlaydi.",
+        min: "daq", s: "s" },
+};
+
+// ---------- Data from the bot (after "#d=") ----------
+function decodePayload(hash) {
+  const match = /(?:^|[#&])d=([A-Za-z0-9_-]+)/.exec(hash || "");
+  if (!match) return null;
+  const b64 = match[1].replace(/-/g, "+").replace(/_/g, "/");
+  const bytes = Uint8Array.from(atob(b64 + "===".slice((b64.length + 3) % 4)), c => c.charCodeAt(0));
+  return JSON.parse(new TextDecoder().decode(bytes));
+}
+
+const data = (() => { try { return decodePayload(location.hash); } catch (e) { return null; } })();
+const lang = (data && I18N[data.l]) ? data.l : "en";
+const T = I18N[lang];
+document.documentElement.lang = lang;
+const STORE_KEY = data ? `gym-${data.d}-${new Date().toISOString().slice(0, 10)}` : "gym";
+
+// Logged sets survive closing the app by accident (same day, same plan day).
+let logged = [];
+try { logged = JSON.parse(localStorage.getItem(STORE_KEY) || "[]"); } catch (e) { logged = []; }
+const save = () => localStorage.setItem(STORE_KEY, JSON.stringify(logged));
+
+const fmtNum = n => (Math.round(n * 100) / 100).toString();
+function fmtSet(ex, w, r) {
+  if (ex.t) return `${r} ${T.s}`;
+  if (ex.e === "bodyweight") return w > 0 ? `${T.bw}+${fmtNum(w)} × ${r}` : `${T.bw} × ${r}`;
+  return `${fmtNum(w)} ${T.kg} × ${r}`;
+}
+const fmtRest = s => s >= 120 && s % 30 === 0 ? `${fmtNum(s / 60)} ${T.min}` : `${s} ${T.s}`;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const haptic = kind => { try { tg && tg.HapticFeedback.notificationOccurred(kind); } catch (e) {} };
+
+// ---------- Workout tab ----------
+const drafts = {};
+
+function renderWorkout() {
+  const root = document.getElementById("workout");
+  if (!data) { root.innerHTML = `<div class="empty">${T.noPayload}</div>`; return; }
+  let html = data.dl ? `<div class="banner">${T.deload}</div>` : "";
+  data.x.forEach((ex, i) => {
+    const mine = logged.filter(s => s[0] === ex.i);
+    const draft = drafts[i] || (drafts[i] = mine.length ? [mine[mine.length - 1][1], mine[mine.length - 1][2]] : [ex.g[0], ex.g[1]]);
+    const done = mine.length >= ex.s;
+    const reps = ex.t ? `${ex.r[0]}–${ex.r[1]} ${T.s}` : `${ex.r[0]}–${ex.r[1]}`;
+    const imgs = (ex.im || []).map((f, k) => `<img class="${k ? "peak" : ""}" src="../assets/exercises/${encodeURIComponent(f)}" alt="" onerror="this.parentNode.remove()">`).join("");
+    html += `<div class="card ${done ? "done" : ""}">
+      <div class="row"><div class="name">${esc(ex.n)}</div><div class="badge">${done ? "✓ " : ""}${mine.length}/${ex.s}</div></div>
+      <div class="meta">${T.target}: ${ex.s} × ${reps} · ${T.rest} ${fmtRest(ex.rs)}</div>
+      <div class="meta">${ex.p.length ? `${T.last}: ${ex.p.map(p => fmtSet(ex, p[0], p[1])).join(" · ")}` : T.first}</div>
+      ${imgs ? `<div class="anim">${imgs}</div>` : ""}
+      <div class="steppers">
+        ${ex.t ? "" : `<div class="stepper"><button data-act="w" data-i="${i}" data-d="-2.5">−</button>
+          <div class="val">${ex.e === "bodyweight" && draft[0] === 0 ? T.bw : fmtNum(draft[0])}<span class="unit">${T.kg}</span></div>
+          <button data-act="w" data-i="${i}" data-d="2.5">+</button></div>`}
+        <div class="stepper"><button data-act="r" data-i="${i}" data-d="${ex.t ? -5 : -1}">−</button>
+          <div class="val">${draft[1]}<span class="unit">${ex.t ? T.sec : T.reps}</span></div>
+          <button data-act="r" data-i="${i}" data-d="${ex.t ? 5 : 1}">+</button></div>
+      </div>
+      <button class="log" data-act="log" data-i="${i}">${T.log}: ${fmtSet(ex, draft[0], draft[1])}</button>
+      <div class="chips">${mine.map(s => `<span class="chip">${fmtSet(ex, s[1], s[2])}<button data-act="del" data-k="${logged.indexOf(s)}">✕</button></span>`).join("")}</div>
+    </div>`;
+  });
+  root.innerHTML = html;
+  updateMainButton();
+}
+
+document.getElementById("workout").addEventListener("click", e => {
+  const btn = e.target.closest("button[data-act]");
+  if (!btn) return;
+  const i = Number(btn.dataset.i), act = btn.dataset.act;
+  if (act === "w") drafts[i][0] = Math.min(500, Math.max(0, drafts[i][0] + Number(btn.dataset.d)));
+  if (act === "r") drafts[i][1] = Math.min(600, Math.max(1, drafts[i][1] + Number(btn.dataset.d)));
+  if (act === "log") {
+    const ex = data.x[i];
+    logged.push([ex.i, drafts[i][0], drafts[i][1]]);
+    save();
+    haptic("success");
+    startRest(ex.rs);
+  }
+  if (act === "del") { logged.splice(Number(btn.dataset.k), 1); save(); }
+  renderWorkout();
+});
+
+// ---------- Rest timer ----------
+let restEnd = 0, restTimer = null;
+function startRest(seconds) {
+  restEnd = Date.now() + seconds * 1000;
+  document.getElementById("rest").classList.add("show");
+  clearInterval(restTimer);
+  restTimer = setInterval(tickRest, 250);
+  tickRest();
+}
+function tickRest() {
+  const left = Math.max(0, Math.round((restEnd - Date.now()) / 1000));
+  document.getElementById("rest-label").textContent = left ? T.resting : T.restOver;
+  document.getElementById("rest-time").textContent = left ? `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}` : "";
+  if (!left) { clearInterval(restTimer); haptic("warning"); setTimeout(stopRest, 4000); }
+}
+function stopRest() { clearInterval(restTimer); document.getElementById("rest").classList.remove("show"); }
+document.getElementById("rest-skip").addEventListener("click", stopRest);
+
+// ---------- Finish: send the sets back to the bot ----------
+function finish() {
+  if (!logged.length) return;
+  const payload = JSON.stringify({ v: 1, d: data.d, s: logged.map(s => [s[0], s[1], s[2]]) });
+  try {
+    tg.sendData(payload);         // closes the app; the bot receives the sets
+    localStorage.removeItem(STORE_KEY);
+  } catch (e) {
+    (tg && tg.showAlert) ? tg.showAlert(T.notFromKeyboard) : alert(T.notFromKeyboard);
+  }
+}
+function updateMainButton() {
+  const text = T.finish.replace("{n}", logged.length);
+  const fallback = document.getElementById("fallback");
+  if (tg && tg.MainButton && tg.initData !== undefined && tg.platform !== "unknown") {
+    if (logged.length) { tg.MainButton.setText(text); tg.MainButton.show(); } else tg.MainButton.hide();
+  } else {
+    // Outside Telegram (preview in a browser): show a normal button instead.
+    fallback.textContent = text;
+    fallback.style.display = logged.length ? "block" : "none";
+  }
+}
+document.getElementById("fallback").addEventListener("click", finish);
+if (tg && tg.MainButton) tg.MainButton.onClick(finish);
+
+// ---------- Progress tab (SVG line charts) ----------
+function lineChart(title, points) {
+  const W = 320, H = 170, P = 28, L = 46;  // L: room for the value labels on the left
+  const ys = points.map(p => p[1]);
+  let min = Math.min(...ys), max = Math.max(...ys);
+  if (max - min < 1) { min -= 0.5; max += 0.5; }
+  const x = i => L + (points.length > 1 ? i * (W - L - 12) / (points.length - 1) : (W - L) / 2);
+  const y = v => H - P + 6 - (v - min) / (max - min) * (H - P * 1.6);
+  const path = points.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p[1]).toFixed(1)}`).join(" ");
+  const dates = [points[0][0], points[points.length - 1][0]].map(d => d.slice(8, 10) + "." + d.slice(5, 7));
+  return `<div class="card"><div class="name">${esc(title)}</div>
+    <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+      <text x="2" y="${y(max) + 4}" font-size="10" fill="var(--hint)">${fmtNum(max)}</text>
+      <text x="2" y="${y(min) + 4}" font-size="10" fill="var(--hint)">${fmtNum(min)}</text>
+      <path d="${path}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round"/>
+      ${points.map((p, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(p[1]).toFixed(1)}" r="3" fill="var(--accent)"/>`).join("")}
+      <text x="${L}" y="${H - 2}" font-size="10" fill="var(--hint)">${dates[0]}</text>
+      <text x="${W - 4}" y="${H - 2}" font-size="10" fill="var(--hint)" text-anchor="end">${dates[1]}</text>
+    </svg></div>`;
+}
+
+function renderProgress() {
+  const root = document.getElementById("progress");
+  if (!data) { root.innerHTML = `<div class="empty">${T.noPayload}</div>`; return; }
+  if (!data.pr) { root.innerHTML = `<div class="empty">${T.premium}</div>`; return; }
+  let html = "";
+  if (data.pr.w.length >= 2) html += lineChart(T.weight, data.pr.w);
+  data.pr.s.forEach(s => { html += lineChart(`${s.n}: ${T.e1rm}`, s.h); });
+  root.innerHTML = html || `<div class="empty">${T.noData}</div>`;
+}
+
+// ---------- Tabs and start-up ----------
+document.querySelectorAll(".tab").forEach(tab => tab.addEventListener("click", () => {
+  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t === tab));
+  document.getElementById("workout").hidden = tab.dataset.tab !== "workout";
+  document.getElementById("progress").hidden = tab.dataset.tab !== "progress";
+}));
+document.getElementById("tab-workout").textContent = T.workout;
+document.getElementById("tab-progress").textContent = T.progress;
+document.getElementById("rest-skip").textContent = T.skip;
+document.getElementById("title").textContent = data ? `🏋️ ${data.dn}` : "🏋️";
+if (tg) { tg.ready(); tg.expand(); }
+renderWorkout();
+renderProgress();
+</script>
+</body>
+</html>

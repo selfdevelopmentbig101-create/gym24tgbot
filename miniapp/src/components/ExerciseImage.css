@@ -1,0 +1,152 @@
+/* ExerciseImage (components/ExerciseImage.tsx). Design tokens only. */
+
+.ex-image {
+  --exercise-loop: 1.8s;             /* one full start -> peak -> start loop */
+  position: relative;
+  flex: none;
+  overflow: hidden;
+  background: var(--color-surface-sunken);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ex-image-thumb {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-sm);
+}
+
+.ex-image-large {
+  width: 100%;
+  aspect-ratio: 1;                   /* fixed shape: no layout jump when images arrive */
+  border-radius: var(--radius-lg);
+}
+
+.ex-image-large[role="button"] {
+  cursor: pointer;
+}
+
+.ex-image-large:focus-visible {
+  outline: 2px solid var(--color-mint);
+  outline-offset: 2px;
+}
+
+/* The RepDB pictures have a white background. */
+.ex-image-ready {
+  background: #fff;
+}
+
+.ex-image-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0;
+  transition: opacity var(--duration-base) var(--ease-out);
+  pointer-events: none;
+  user-select: none;
+}
+
+.ex-image-thumb .ex-image-frame {
+  object-fit: cover;
+}
+
+.ex-image-ready .ex-image-frame {
+  opacity: 1;
+}
+
+/* The peak frame sits on top and fades in and out over the start frame. */
+.ex-image-ready .ex-image-peak {
+  opacity: 0;
+  transition: none;
+}
+
+.ex-image-playing .ex-image-peak,
+.ex-image-paused .ex-image-peak {
+  animation: ex-image-peak var(--exercise-loop) ease-in-out infinite;
+}
+
+.ex-image-paused .ex-image-peak {
+  animation-play-state: paused;
+}
+
+/* Hold start, crossfade to peak, hold, crossfade back. */
+@keyframes ex-image-peak {
+  0%, 20% { opacity: 0; }
+  40%, 70% { opacity: 1; }
+  90%, 100% { opacity: 0; }
+}
+
+/* Loading skeleton (soft shimmer). */
+.ex-image-skeleton {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, var(--color-surface-sunken) 30%, var(--color-surface-raised) 50%,
+    var(--color-surface-sunken) 70%);
+  background-size: 200% 100%;
+  animation: ex-image-shimmer 1.2s linear infinite;
+}
+
+@keyframes ex-image-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+
+/* Round lime "play" badge shown while paused. */
+.ex-image-badge {
+  position: absolute;
+  right: var(--space-3);
+  bottom: var(--space-3);
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--color-lime-button);
+  color: var(--color-text-on-accent);
+  box-shadow: var(--shadow-card);
+}
+
+/* No image: muscle icon (+ caption or form tips). */
+.ex-image-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  color: var(--color-mint);
+}
+
+.ex-image-large.ex-image-empty {
+  aspect-ratio: 16 / 9;
+  padding: var(--space-4);
+  text-align: center;
+}
+
+.ex-image-large.ex-image-empty:has(.ex-image-tips) {
+  aspect-ratio: auto;
+  min-height: 180px;
+}
+
+.ex-image-large.ex-image-empty svg {
+  width: 56px;
+  height: 56px;
+}
+
+.ex-image-caption {
+  margin: 0;
+  font-size: var(--font-size-small);
+  color: var(--color-text-muted);
+}
+
+.ex-image-tips {
+  margin: 0;
+  padding-left: var(--space-5);
+  text-align: left;
+  font-size: var(--font-size-small);
+  color: var(--color-text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ex-image-skeleton { animation: none; }
+}
