@@ -18,7 +18,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from api.notify import Notifier, make_notifier, no_notifier
-from api.routes import exercises, me, profile, system
+from api.routes import exercises, me, profile, programs, system
 from api.static import CachedStaticFiles, MiniAppFiles
 from config import config
 from database.base import make_engine, make_session_factory
@@ -85,6 +85,7 @@ def create_app(session_factory: async_sessionmaker | None = None,
     app.include_router(me.router)
     app.include_router(profile.router)
     app.include_router(exercises.router)
+    app.include_router(programs.router)
 
     # Exercise images (public, no user data), cached for a week.
     app.mount("/static/exercises",

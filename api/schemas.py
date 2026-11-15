@@ -171,3 +171,147 @@ class MediaReport(BaseModel):
     both: list[str] = Field(description="Start and peak images: animated")
     one: list[str] = Field(description="One image: shown as a still")
     none: list[str]
+
+
+# ---------- Stage 4: programs ----------
+
+TrainingGoal = Literal["strength", "hypertrophy", "endurance"]
+
+
+class PlanItemOut(BaseModel):
+    id: int
+    exercise: ExerciseItem
+    sets: int
+    rep_min: int
+    rep_max: int
+    timed: bool = Field(description="Reps are seconds")
+    rest_seconds: int
+
+
+class PlanDayOut(BaseModel):
+    id: int
+    program_id: int
+    index: int
+    name_key: str = Field(description='Text key ("upper", "custom"...); translate as day_<key>')
+    suffix: str
+    name: str | None = Field(description="A name the user typed (overrides name_key)")
+    exercises: list[PlanItemOut]
+    sets: int
+    minutes: int = Field(description="Estimated duration")
+
+
+class ProgramSummary(BaseModel):
+    id: int
+    name: str | None = Field(description="null = named after the split")
+    split: str
+    kind: Literal["template", "custom"]
+    template_days: int | None
+    goal: TrainingGoal
+    weeks: int
+    workouts_per_week: int
+    is_current: bool
+    edited: bool
+    started_on: date | None
+    ends_on: date | None
+    week: int | None = Field(description="Current week (1-based), current program only")
+    completed: int
+    total: int = Field(description="weeks x workouts per week")
+    next_day_index: int | None
+    day_names: list[PlanDayOut] = Field(description="Days without exercises (for cards)")
+
+
+class ProgramDetail(ProgramSummary):
+    days: list[PlanDayOut]
+
+
+class TemplateOut(BaseModel):
+    days: int
+    split: str
+    recommended: bool = Field(description="Matches the training days in the profile")
+    day_keys: list[str]
+
+
+class ProgramsOut(BaseModel):
+    current: ProgramSummary | None
+    created: list[ProgramSummary] = Field(description="Saved programs that aren't current")
+    available: list[TemplateOut] = Field(description="Built-in programs")
+
+
+class ProgramCreate(BaseModel):
+    name: str | None = Field(default=None, max_length=200)
+    weeks: int = 8
+    workouts_per_week: int = Field(default=3, description="Custom programs: number of empty days")
+    goal: TrainingGoal = "hypertrophy"
+    template_days: int | None = Field(default=None, description="Build from a built-in program")
+    activate: bool = False
+
+
+class ProgramPatch(BaseModel):
+    name: str | None = Field(default=None, max_length=200, description="null = use the split name")
+    weeks: int | None = None
+    goal: TrainingGoal | None = None
+
+
+class DayCreate(BaseModel):
+    name: str | None = Field(default=None, max_length=200)
+
+
+class DayPatch(BaseModel):
+    name: str | None = Field(default=None, max_length=200)
+    position: int | None = None
+
+
+class ItemCreate(BaseModel):
+    exercise_id: str = Field(max_length=80)
+
+
+class ItemPatch(BaseModel):
+    sets: int | None = None
+    rep_min: int | None = None
+    rep_max: int | None = None
+    rest_seconds: int | None = None
+    position: int | None = None
+
+
+class SubstituteIn(BaseModel):
+    exercise_id: str | None = Field(default=None, max_length=80, description="null = pick the best one")
+
+
+class CalendarDayOut(BaseModel):
+    date: date
+    status: Literal["done", "missed", "planned", "rest"]
+
+
+class CalendarOut(BaseModel):
+    month: str
+    days: list[CalendarDayOut]
+    schedule: list[int] = Field(description="Scheduled weekdays, 0 = Monday")
+    done: int
+    planned: int = Field(description="Scheduled days this month")
+
+
+class MuscleSets(BaseModel):
+    muscle: str
+    sets: float
+
+
+class WeekMuscle(MuscleSets):
+    level: Literal["low", "ok", "high"]
+
+
+class EnergyWarning(BaseModel):
+    key: Literal["session_long", "session_many_sets", "muscle_session_high", "weekly_high"]
+    muscle: str | None = None
+    value: float
+
+
+class EnergyDay(BaseModel):
+    sets: int
+    minutes: int
+    muscles: list[MuscleSets]
+
+
+class EnergyOut(BaseModel):
+    day: EnergyDay
+    week: list[WeekMuscle]
+    warnings: list[EnergyWarning]

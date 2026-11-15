@@ -197,3 +197,125 @@ export function getExercises(query: LibraryQuery): Promise<ExerciseList> {
 }
 
 export const getExercise = (id: string) => api<ExerciseDetail>("/api/exercises/" + encodeURIComponent(id));
+
+// ---------- Stage 4: programs ----------
+
+export type TrainingGoal = "strength" | "hypertrophy" | "endurance";
+
+export interface PlanItem {
+  id: number;
+  exercise: ExerciseItem;
+  sets: number;
+  rep_min: number;
+  rep_max: number;
+  timed: boolean;
+  rest_seconds: number;
+}
+
+export interface PlanDay {
+  id: number;
+  program_id: number;
+  index: number;
+  name_key: string;
+  suffix: string;
+  name: string | null;
+  exercises: PlanItem[];
+  sets: number;
+  minutes: number;
+}
+
+export interface ProgramSummary {
+  id: number;
+  name: string | null;
+  split: string;
+  kind: "template" | "custom";
+  template_days: number | null;
+  goal: TrainingGoal;
+  weeks: number;
+  workouts_per_week: number;
+  is_current: boolean;
+  edited: boolean;
+  started_on: string | null;
+  ends_on: string | null;
+  week: number | null;
+  completed: number;
+  total: number;
+  next_day_index: number | null;
+  day_names: PlanDay[];
+}
+
+export interface ProgramDetail extends ProgramSummary {
+  days: PlanDay[];
+}
+
+export interface TemplateInfo {
+  days: number;
+  split: string;
+  recommended: boolean;
+  day_keys: string[];
+}
+
+export interface Programs {
+  current: ProgramSummary | null;
+  created: ProgramSummary[];
+  available: TemplateInfo[];
+}
+
+export interface CalendarMonth {
+  month: string;
+  days: { date: string; status: "done" | "missed" | "planned" | "rest" }[];
+  schedule: number[];
+  done: number;
+  planned: number;
+}
+
+export interface Energy {
+  day: { sets: number; minutes: number; muscles: { muscle: string; sets: number }[] };
+  week: { muscle: string; sets: number; level: "low" | "ok" | "high" }[];
+  warnings: { key: string; muscle?: string | null; value: number }[];
+}
+
+export interface ProgramCreate {
+  name?: string | null;
+  weeks: number;
+  workouts_per_week?: number;
+  goal: TrainingGoal;
+  template_days?: number | null;
+  activate?: boolean;
+}
+
+export const getPrograms = () => api<Programs>("/api/programs");
+export const getProgram = (id: number) => api<ProgramDetail>("/api/programs/" + id);
+export const createProgram = (body: ProgramCreate) =>
+  api<ProgramDetail>("/api/programs", { method: "POST", body });
+export const patchProgram = (id: number, body: { name?: string | null; weeks?: number; goal?: TrainingGoal }) =>
+  api<ProgramDetail>("/api/programs/" + id, { method: "PATCH", body });
+export const deleteProgram = (id: number) => api<null>("/api/programs/" + id, { method: "DELETE" });
+export const activateProgram = (id: number) =>
+  api<ProgramDetail>("/api/programs/" + id + "/activate", { method: "POST" });
+export const resetProgram = (id: number) =>
+  api<ProgramDetail>("/api/programs/" + id + "/reset", { method: "POST" });
+export const addDay = (programId: number, name?: string) =>
+  api<ProgramDetail>("/api/programs/" + programId + "/days", { method: "POST", body: { name: name || null } });
+export const patchDay = (programId: number, dayId: number, body: { name?: string; position?: number }) =>
+  api<ProgramDetail>("/api/programs/" + programId + "/days/" + dayId, { method: "PATCH", body });
+export const deleteDay = (programId: number, dayId: number) =>
+  api<ProgramDetail>("/api/programs/" + programId + "/days/" + dayId, { method: "DELETE" });
+export const getDay = (dayId: number) => api<PlanDay>("/api/days/" + dayId);
+export const addDayExercise = (dayId: number, exerciseId: string) =>
+  api<PlanDay>("/api/days/" + dayId + "/exercises", { method: "POST", body: { exercise_id: exerciseId } });
+export const patchDayExercise = (dayId: number, itemId: number,
+  body: { sets?: number; rep_min?: number; rep_max?: number; rest_seconds?: number; position?: number }) =>
+  api<PlanDay>("/api/days/" + dayId + "/exercises/" + itemId, { method: "PATCH", body });
+export const deleteDayExercise = (dayId: number, itemId: number) =>
+  api<PlanDay>("/api/days/" + dayId + "/exercises/" + itemId, { method: "DELETE" });
+export const substituteDayExercise = (dayId: number, itemId: number, exerciseId?: string) =>
+  api<PlanDay>("/api/days/" + dayId + "/exercises/" + itemId + "/substitute",
+    { method: "POST", body: { exercise_id: exerciseId ?? null } });
+export const getCalendar = (month: string) => api<CalendarMonth>("/api/calendar?month=" + month);
+export const getEnergy = (dayId: number) => api<Energy>("/api/energy?day=" + dayId);
+
+/** The error code from a failed request (e.g. "program_empty"), for translated messages. */
+export function errorCode(error: unknown): string {
+  return error instanceof ApiError ? error.code : "error";
+}

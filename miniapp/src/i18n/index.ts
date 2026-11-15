@@ -16,3 +16,7 @@ export function translate(lang: LanguageCode, key: TextKey, vars: Record<string,
   const template = DICTS[lang]?.[key] ?? (en as Dict)[key] ?? key;
   return template.replace(/\{(\w+)\}/g, (_, name: string) => String(vars[name] ?? `{${name}}`));
 }
+
+export function hasText(key: string): boolean {
+  return key in en;
+}

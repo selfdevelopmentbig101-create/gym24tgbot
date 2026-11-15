@@ -18,6 +18,7 @@ interface TelegramWebApp {
   close(): void;
   expand(): void;
   isVersionAtLeast(version: string): boolean;
+  showConfirm?(message: string, callback: (ok: boolean) => void): void;
   setHeaderColor(color: string): void;
   setBackgroundColor(color: string): void;
   setBottomBarColor?(color: string): void;
@@ -103,4 +104,13 @@ export function bindNativeBack(onBack: (() => void) | null): () => void {
 /** Telegram's user id, ONLY for keying local drafts on this device. Never sent to the API. */
 export function localUserKey(): string {
   return String(getWebApp()?.initDataUnsafe.user?.id ?? "anon");
+}
+
+/** Telegram's own confirm dialog (falls back to the browser's). */
+export function confirmDialog(message: string): Promise<boolean> {
+  const app = getWebApp();
+  if (app?.showConfirm && app.isVersionAtLeast("6.2")) {
+    return new Promise((resolve) => app.showConfirm!(message, resolve));
+  }
+  return Promise.resolve(window.confirm(message));
 }

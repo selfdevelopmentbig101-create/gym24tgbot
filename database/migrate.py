@@ -82,6 +82,24 @@ def _adopt_legacy(connection: Connection) -> None:
                 logger.info("Dropping obsolete column %s.%s", table_name, name)
                 connection.execute(text(f'ALTER TABLE "{table_name}" DROP COLUMN "{name}"'))
 
+    # 4. Indexes whose uniqueness changed (e.g. one plan per user -> several programs).
+    for table in Base.metadata.sorted_tables:
+        if table.name not in existing_tables:
+            continue
+        old = {i["name"]: bool(i["unique"]) for i in inspector.get_indexes(table.name)}
+        for index in table.indexes:
+            if index.name in old and old[index.name] != bool(index.unique):
+                logger.info("Recreating index %s", index.name)
+                connection.execute(text(f'DROP INDEX "{index.name}"'))
+                index.create(connection)
+
+    # 5. Programs (Stage 4): existing plans become the current program.
+    if "workout_plans" in existing_tables:
+        connection.execute(text(
+            "UPDATE workout_plans SET template_days = (SELECT COUNT(*) FROM plan_days "
+            "WHERE plan_days.plan_id = workout_plans.id), started_on = DATE(created_at) "
+            "WHERE template_days IS NULL AND kind = 'template'"))
+
 
 def _prepare(connection: Connection) -> None:
     tables = set(inspect(connection).get_table_names())
@@ -96,6 +114,25 @@ def _prepare(connection: Connection) -> None:
 
 async def prepare_database(engine: AsyncEngine) -> None:
     """Bring the database schema up to date. Safe to call on every start."""
-    async with engine.begin() as connection:
-        await connection.run_sync(_prepare)
+    async with engine.connect() as connection:
+        sqlite = connection.dialect.name == "sqlite"
+        if sqlite:
+            # SQLite changes a table by copying it to a new one and dropping the old one.
+            # With foreign keys on, that drop would run ON DELETE CASCADE and delete
+            # every child row (e.g. a plan's days). The pragma only works outside a
+            # transaction, so it's set before the migration starts.
+            await connection.exec_driver_sql("PRAGMA foreign_keys=OFF")
+            await connection.commit()
+        try:
+            await connection.run_sync(_prepare)
+            if sqlite:
+                broken = (await connection.exec_driver_sql("PRAGMA foreign_key_check")).fetchall()
+                if broken:
+                    raise RuntimeError(f"Migration left broken references: {broken[:5]}")
+            await connection.commit()
+        finally:
+            if sqlite:
+                await connection.rollback()
+                await connection.exec_driver_sql("PRAGMA foreign_keys=ON")
+                await connection.commit()
     logger.info("Database schema is up to date")
