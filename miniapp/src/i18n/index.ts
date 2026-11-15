@@ -1,7 +1,7 @@
 /*
  * Mini App texts. One JSON file per language in this folder; missing keys fall
  * back to English. To add Uzbek texts, fill uz.json (and later plan.uz.json,
- * train.uz.json, profile.uz.json) with the same keys as the English files.
+ * train.uz.json, profile.uz.json, home.uz.json) with the same keys as the English files.
  *
  * A feature can keep its texts in its own file (plan.*, train.*, profile.*);
  * they are merged here, so screens just call t("key").
@@ -15,11 +15,13 @@ import trainEn from "./train.en.json";
 import trainRu from "./train.ru.json";
 import profileEn from "./profile.en.json";
 import profileRu from "./profile.ru.json";
+import homeEn from "./home.en.json";
+import homeRu from "./home.ru.json";
 import type { LanguageCode } from "../lib/api";
 
 type Dict = Record<string, string>;
-const EN = { ...en, ...planEn, ...trainEn, ...profileEn };
-const DICTS: Record<LanguageCode, Dict> = { en: EN, ru: { ...ru, ...planRu, ...trainRu, ...profileRu }, uz };
+const EN = { ...en, ...planEn, ...trainEn, ...profileEn, ...homeEn };
+const DICTS: Record<LanguageCode, Dict> = { en: EN, ru: { ...ru, ...planRu, ...trainRu, ...profileRu, ...homeRu }, uz };
 
 export type TextKey = keyof typeof EN;
 

@@ -88,3 +88,6 @@
 .toggle-row input { width: 22px; height: 22px; accent-color: var(--color-mint); }
 .edit-message { margin: 0; color: var(--color-mint); text-align: center; }
 .edit-save { width: 100%; }
+
+/* Card heading (shared by Plan, Train, Home and Profile cards). */
+.card-title { margin: 0 0 var(--space-3); font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); }

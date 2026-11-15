@@ -2,7 +2,8 @@
  * App shell. Startup: verify login (GET /api/me) and load settings, then
  *   profile incomplete -> Onboarding (whatever the link)
  *   profile complete   -> the screen for the URL path, with the bottom tab bar:
- *     /                     Home (daily targets until the real Home tab, Stage 7)
+ *     /                     Home: greeting, character, next workout, this week, today (Stage 7)
+ *     /targets              daily targets (also shown once, right after onboarding)
  *     /plan                 Plan: calendar, current program, details, weekly volume
  *     /plan/edit[/{day}]    split editor with the energy bar
  *     /plan/programs[/new]  all programs, create a program
@@ -12,7 +13,7 @@
  *     /profile              Profile: character, level, XP, achievements, settings (Stage 6)
  *     /profile/edit         edit profile answers
  *     /exercise/{id}        exercise detail
- * Unbuilt tabs (Stats, Profile) stay hidden.
+ * The Stats tab (Stage 8) stays hidden until it's built.
  */
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -28,7 +29,8 @@ import { Library } from "./screens/Library";
 import { Logger } from "./screens/Logger";
 import { Profile } from "./screens/Profile";
 import { ProfileEdit } from "./screens/ProfileEdit";
-import { CharacterCard } from "./components/CharacterCard";
+import { Home } from "./screens/Home";
+import { Targets } from "./screens/Targets";
 import { Onboarding } from "./screens/Onboarding";
 import { Plan } from "./screens/Plan";
 import { PlanReady } from "./screens/PlanReady";
@@ -139,6 +141,10 @@ export function App() {
                         onDeleted={() => { navigate({ name: "home" }, { replace: true }); void load(); }} />;
     } else if (route.name === "profileEdit") {
       screen = <ProfileEdit t={t} config={state.config} />;
+    } else if (route.name === "targets") {
+      screen = <Targets targets={state.targets} lang={lang} t={t} />;
+    } else if (!state.justFinished) {
+      screen = <Home t={t} name={state.me.first_name} locale={locale} />;
     } else {
       const picker = (
         <section className="language-row">
@@ -154,11 +160,17 @@ export function App() {
           </div>
         </section>
       );
+      // Right after onboarding: "Your plan is ready" once, then Home.
       screen = (
         <>
-          <div className="home-character"><CharacterCard t={t} /></div>
           <PlanReady targets={state.targets} lang={lang} t={t} justFinished={state.justFinished}
                      planReady={state.planReady} languagePicker={picker} />
+          <div className="home-continue">
+            <button type="button" className="button-secondary"
+                    onClick={() => { haptic.tap(); setState({ ...state, justFinished: false }); }}>
+              {t("home_go_home")}
+            </button>
+          </div>
         </>
       );
     }

@@ -1,0 +1,93 @@
+/* Home tab (Stage 7). Tokens only. */
+
+.home {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  padding-bottom: var(--space-6);
+  animation: rise var(--duration-base) var(--ease-out);
+}
+
+.home-head h1,
+.home-head p { margin: 0; }
+.home-greeting { font-size: var(--font-size-title); line-height: var(--line-height-tight); }
+.home .char-card { margin-bottom: 0; }
+
+.home-next { display: flex; flex-direction: column; gap: var(--space-2); }
+.home-next p { margin: 0; }
+.home-next-name { margin: 0; font-size: var(--font-size-h2); }
+.home-live { box-shadow: inset 0 0 0 1.5px var(--frame-outline); }
+.home-muscles .chip-static { min-height: 30px; pointer-events: none; }
+.home-names { color: var(--color-text-muted); }
+.home-actions { display: flex; align-items: center; gap: var(--space-3); margin-top: var(--space-2); }
+.home-actions .button-primary { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); }
+.home-next .button-primary { width: 100%; }
+.home-actions .button-primary { width: auto; }
+
+.home-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.home-row .card-title { margin: 0; }
+.home-row p { margin: var(--space-1) 0 0; }
+.home-streak { display: inline-flex; align-items: center; gap: var(--space-1); color: var(--color-lime); }
+.home-streak svg { width: 16px; height: 16px; }
+
+.week-dots { display: grid; grid-template-columns: repeat(7, 1fr); gap: var(--space-1); margin: var(--space-4) 0 var(--space-3); padding: 0; list-style: none; }
+.week-dot { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); }
+
+.week-dot-circle {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--color-surface-sunken);
+  color: var(--color-text-on-accent);
+}
+
+.week-dot-on .week-dot-circle { background: var(--gradient-accent); box-shadow: var(--shadow-button); }
+.week-dot-today .week-dot-circle { outline: 2px solid var(--color-mint); outline-offset: 2px; }
+.week-dot-label { font-size: var(--font-size-caption); color: var(--color-text-muted); text-transform: uppercase; }
+.week-dot-today .week-dot-label { color: var(--color-mint); font-weight: var(--font-weight-semibold); }
+.home-week-goal { margin: 0 0 var(--space-3); }
+
+.home-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-2); }
+
+.home-stats span {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: var(--space-2) var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  font-size: 11px;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.home-stats b { font-size: var(--font-size-body); color: var(--color-text); font-variant-numeric: tabular-nums; }
+
+.home-macro { display: flex; justify-content: space-between; align-items: baseline; margin-top: var(--space-3); margin-bottom: var(--space-1); }
+.home-bar { display: block; height: 8px; border-radius: var(--radius-pill); background: var(--color-surface-sunken); overflow: hidden; }
+.home-bar > span { display: block; height: 100%; border-radius: inherit; background: var(--gradient-accent); transition: width var(--duration-slow) var(--ease-out); }
+.home-weight { font-size: var(--font-size-h2); white-space: nowrap; }
+
+.home-links { display: flex; flex-direction: column; gap: var(--space-2); }
+
+.home-link {
+  display: grid;
+  grid-template-columns: 24px 1fr auto;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--button-height);
+  padding: 0 var(--space-4);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  text-align: left;
+}
+
+.home-continue { padding: 0 var(--screen-padding) var(--space-6); }
+.home-continue .button-primary { width: 100%; }

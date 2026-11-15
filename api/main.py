@@ -18,7 +18,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from api.notify import Notifier, make_notifier, no_notifier
-from api.routes import exercises, level, me, plan, profile, system, train
+from api.routes import exercises, home, level, me, plan, profile, system, train
 from api.static import CachedStaticFiles, MiniAppFiles
 from config import config
 from database.base import make_engine, make_session_factory
@@ -88,6 +88,7 @@ def create_app(session_factory: async_sessionmaker | None = None,
     app.include_router(plan.router)        # Stage 4: programs, split editor, calendar, energy
     app.include_router(train.router)       # Stage 5: workout-day screen and live logger
     app.include_router(level.router)       # Stage 6: level, XP, achievements, delete my data
+    app.include_router(home.router)        # Stage 7: Home tab
 
     # Exercise images (public, no user data), cached for a week.
     app.mount("/static/exercises",

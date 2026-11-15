@@ -290,3 +290,6 @@
 .program-form .filter-group { margin: 0; }
 .program-form .stepper { border-top: 0; }
 .program-submit { width: 100%; }
+
+/* Card heading (shared by Plan, Train, Home and Profile cards). */
+.card-title { margin: 0 0 var(--space-3); font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); }
