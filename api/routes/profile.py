@@ -105,10 +105,11 @@ async def put_profile(body: ProfileIn, request: Request, background: BackgroundT
     first_time = user.profile is None
     old = {name: getattr(user.profile, name) for name in plans.PLAN_FIELDS} if not first_time else {}
     await users.save_profile(session, user, clean)
-    had_plan = await plans.get_plan(session, user) is not None
-    rebuild = first_time or not had_plan or any(
-        getattr(user.profile, name) != value for name, value in old.items())
-    rebuilt = rebuild and await plans.generate_for_user(session, user) is not None
+    if first_time or await plans.get_plan(session, user) is None:
+        rebuilt = await plans.generate_for_user(session, user) is not None
+    else:
+        changed = {name for name, value in old.items() if getattr(user.profile, name) != value}
+        rebuilt = await plans.rebuild_for_profile(session, user, changed)
     logger.info("Profile saved from the Mini App (first time: %s)", first_time)
 
     if first_time:
@@ -139,9 +140,9 @@ async def patch_profile(body: ProfilePatch, user: User = Depends(get_user),
     old = {name: getattr(profile, name) for name in plans.PLAN_FIELDS}
     for name, value in clean.items():
         await users.update_profile_field(session, user, name, value)
-    rebuild = any(getattr(profile, name) != value for name, value in old.items()) \
-        and await plans.get_plan(session, user) is not None
-    rebuilt = rebuild and await plans.generate_for_user(session, user) is not None
+    changed = {name for name, value in old.items() if getattr(profile, name) != value}
+    rebuilt = await plans.get_plan(session, user) is not None \
+        and await plans.rebuild_for_profile(session, user, changed)
     logger.info("Profile updated from the Mini App (%s)", ", ".join(sorted(clean)) or "no changes")
     return await _saved(session, user, rebuilt)
 

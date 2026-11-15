@@ -140,7 +140,7 @@ async def on_nudge_answer(callback: CallbackQuery, callback_data: RemCB, session
             await send_or_edit(callback, t("stale_button"))
             return
         await users.update_profile_field(session, user, "training_days", days)
-        await plans.generate_for_user(session, user)
+        await plans.rebuild_for_profile(session, user, {"training_days"})
         settings.workout_days = DEFAULT_WORKOUT_DAYS[days]
         settings.missed_streak = 0
         await session.commit()

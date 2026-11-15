@@ -82,6 +82,24 @@ def _adopt_legacy(connection: Connection) -> None:
                 logger.info("Dropping obsolete column %s.%s", table_name, name)
                 connection.execute(text(f'ALTER TABLE "{table_name}" DROP COLUMN "{name}"'))
 
+    # 4. Indexes whose uniqueness changed (e.g. one plan per user -> several programs).
+    for table in Base.metadata.sorted_tables:
+        if table.name not in existing_tables:
+            continue
+        old = {i["name"]: bool(i["unique"]) for i in inspector.get_indexes(table.name)}
+        for index in table.indexes:
+            if index.name in old and old[index.name] != bool(index.unique):
+                logger.info("Recreating index %s", index.name)
+                connection.execute(text(f'DROP INDEX "{index.name}"'))
+                index.create(connection)
+
+    # 5. Programs (Stage 4): existing plans become the current program.
+    if "workout_plans" in existing_tables:
+        connection.execute(text(
+            "UPDATE workout_plans SET template_days = (SELECT COUNT(*) FROM plan_days "
+            "WHERE plan_days.plan_id = workout_plans.id), started_on = DATE(created_at) "
+            "WHERE template_days IS NULL AND kind = 'template'"))
+
 
 def _prepare(connection: Connection) -> None:
     tables = set(inspect(connection).get_table_names())
