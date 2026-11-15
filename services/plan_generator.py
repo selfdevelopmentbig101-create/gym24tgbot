@@ -97,7 +97,28 @@ class PlanSpec:
     days: list[PlannedDay]
 
 
-def prescription(exercise: Exercise, experience: Experience) -> PlannedExercise:
+TRAINING_GOALS = ("strength", "hypertrophy", "endurance")
+
+
+def prescription(exercise: Exercise, experience: Experience,
+                 goal: str = "hypertrophy") -> PlannedExercise:
+    """Sets, reps and rest. Hypertrophy is the default; strength and endurance adjust it."""
+    base = _hypertrophy(exercise, experience)
+    easy_bodyweight = exercise.equipment == "bodyweight" and exercise.difficulty == "beginner"
+    if goal == "strength" and not base.timed:
+        if exercise.movement_type == "compound" and not easy_bodyweight:
+            return PlannedExercise(exercise.id, max(base.sets, 4), 4, 6, False, 180)
+        return PlannedExercise(exercise.id, base.sets, 8, 12, False, 90)
+    if goal == "endurance":
+        if base.timed:
+            return PlannedExercise(exercise.id, 3, 45, 60, True, 45)
+        if exercise.movement_type == "compound":
+            return PlannedExercise(exercise.id, base.sets, 15, 20 if easy_bodyweight else 15, False, 75)
+        return PlannedExercise(exercise.id, base.sets, 15, 20, False, 45)
+    return base
+
+
+def _hypertrophy(exercise: Exercise, experience: Experience) -> PlannedExercise:
     """Sets, reps and rest. Moderate volume that suits most lifters."""
     if exercise.id in TIMED_EXERCISES:
         return PlannedExercise(exercise.id, 3, 30, 45, True, 60)
@@ -134,6 +155,7 @@ def _pick(slot: Slot, muscle: str, available: list[Exercise], user: UserFilter,
 
 
 def generate_plan(exercises: list[Exercise], user: UserFilter, training_days: int,
+                  goal: str = "hypertrophy",
                   rules: dict[str, set[str]] | None = None) -> PlanSpec:
     days_clamped = min(max(training_days, min(SPLITS)), max(SPLITS))
     split, day_layout = SPLITS[days_clamped]
@@ -157,6 +179,6 @@ def generate_plan(exercises: list[Exercise], user: UserFilter, training_days: in
                 continue
             used[exercise.id] += 1
             chosen.append(exercise)
-            day.exercises.append(prescription(exercise, user.experience))
+            day.exercises.append(prescription(exercise, user.experience, goal))
         days.append(day)
     return PlanSpec(split, days)
