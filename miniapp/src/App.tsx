@@ -1,17 +1,23 @@
 /*
  * App shell. Startup: verify login (GET /api/me) and load settings, then
- *   profile incomplete -> Onboarding
- *   profile complete   -> daily targets ("Your plan is ready")
- * The bottom tabs (Home, Plan, Train, Stats, Profile) appear once those tabs are
- * built (Stage 3+); unbuilt tabs stay hidden.
+ *   profile incomplete -> Onboarding (whatever the link)
+ *   profile complete   -> the screen for the URL path, with the bottom tab bar:
+ *     /                 Home (daily targets until the real Home tab, Stage 7)
+ *     /train            Train: exercise library (the workout logger joins it in Stage 5)
+ *     /exercise/{id}    exercise detail
+ * Unbuilt tabs (Plan, Stats, Profile) stay hidden.
  */
 import { useCallback, useEffect, useState } from "react";
 import {
   ApiError, getConfig, getMe, getTargets, setLanguage,
   type AppConfig, type LanguageCode, type Me, type Targets,
 } from "./lib/api";
+import { useRoute } from "./lib/router";
 import { haptic } from "./lib/telegram";
 import { translate, type TextKey } from "./i18n";
+import { TabBar } from "./components/TabBar";
+import { ExerciseDetail } from "./screens/ExerciseDetail";
+import { Library } from "./screens/Library";
 import { Onboarding } from "./screens/Onboarding";
 import { PlanReady } from "./screens/PlanReady";
 
@@ -25,7 +31,7 @@ type State =
   | { kind: "loading" }
   | { kind: "error"; key: TextKey }
   | { kind: "onboarding"; me: Me; config: AppConfig }
-  | { kind: "targets"; me: Me; targets: Targets; justFinished: boolean; planReady: boolean };
+  | { kind: "main"; me: Me; config: AppConfig; targets: Targets; justFinished: boolean; planReady: boolean };
 
 function errorKey(error: unknown): TextKey {
   if (!(error instanceof ApiError)) return "error_generic";
@@ -39,7 +45,9 @@ function errorKey(error: unknown): TextKey {
 export function App() {
   const [state, setState] = useState<State>({ kind: "loading" });
   const [saving, setSaving] = useState<LanguageCode | null>(null);
+  const route = useRoute();
   const lang: LanguageCode = "me" in state ? state.me.language_effective : "en";
+  const locale = lang === "uz" ? "uz-Latn" : lang;
   const t = useCallback((key: TextKey, vars?: Record<string, string | number>) => translate(lang, key, vars), [lang]);
 
   useEffect(() => {
@@ -49,11 +57,11 @@ export function App() {
   const load = useCallback(async () => {
     setState({ kind: "loading" });
     try {
-      const me = await getMe();
+      const [me, config] = await Promise.all([getMe(), getConfig()]);
       if (!me.profile_complete) {
-        setState({ kind: "onboarding", me, config: await getConfig() });
+        setState({ kind: "onboarding", me, config });
       } else {
-        setState({ kind: "targets", me, targets: await getTargets(), justFinished: false, planReady: true });
+        setState({ kind: "main", me, config, targets: await getTargets(), justFinished: false, planReady: true });
       }
     } catch (error) {
       setState({ kind: "error", key: errorKey(error) });
@@ -65,7 +73,7 @@ export function App() {
   }, [load]);
 
   async function chooseLanguage(code: LanguageCode) {
-    if (state.kind !== "targets" || saving) return;
+    if (state.kind !== "main" || saving) return;
     haptic.select();
     setSaving(code);
     try {
@@ -84,29 +92,43 @@ export function App() {
       <Onboarding me={state.me} config={state.config} t={t}
                   onLanguage={(me) => setState({ ...state, me })}
                   onDone={(saved) => setState({
-                    kind: "targets", me: { ...state.me, profile_complete: true, disclaimer_accepted: true },
+                    kind: "main", config: state.config,
+                    me: { ...state.me, profile_complete: true, disclaimer_accepted: true },
                     targets: saved.targets, justFinished: true, planReady: saved.plan_ready,
                   })} />
     );
   }
 
-  if (state.kind === "targets") {
-    const picker = (
-      <section className="language-row">
-        <span className="muted small">{t("language_title")}</span>
-        <div className="pills" role="radiogroup" aria-label={t("language_title")}>
-          {LANGUAGES.map(({ code, label }) => (
-            <button key={code} type="button" role="radio" aria-checked={state.me.language_effective === code}
-                    className={"pill" + (state.me.language_effective === code ? " pill-on" : "")}
-                    disabled={saving !== null} onClick={() => void chooseLanguage(code)}>
-              {saving === code ? "…" : label}
-            </button>
-          ))}
-        </div>
-      </section>
+  if (state.kind === "main") {
+    let screen;
+    if (route.name === "library") {
+      screen = <Library t={t} hasProfile locale={locale} />;
+    } else if (route.name === "exercise") {
+      screen = <ExerciseDetail id={route.id} t={t} attribution={state.config.attribution} />;
+    } else {
+      const picker = (
+        <section className="language-row">
+          <span className="muted small">{t("language_title")}</span>
+          <div className="pills" role="radiogroup" aria-label={t("language_title")}>
+            {LANGUAGES.map(({ code, label }) => (
+              <button key={code} type="button" role="radio" aria-checked={state.me.language_effective === code}
+                      className={"pill" + (state.me.language_effective === code ? " pill-on" : "")}
+                      disabled={saving !== null} onClick={() => void chooseLanguage(code)}>
+                {saving === code ? "…" : label}
+              </button>
+            ))}
+          </div>
+        </section>
+      );
+      screen = <PlanReady targets={state.targets} lang={lang} t={t} justFinished={state.justFinished}
+                          planReady={state.planReady} languagePicker={picker} />;
+    }
+    return (
+      <div className="with-tabs">
+        {screen}
+        <TabBar current={route} t={t} />
+      </div>
     );
-    return <PlanReady targets={state.targets} lang={lang} t={t} justFinished={state.justFinished}
-                      planReady={state.planReady} languagePicker={picker} />;
   }
 
   return (

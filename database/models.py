@@ -127,6 +127,8 @@ class Exercise(Base):
     home_friendly: Mapped[bool] = mapped_column(Boolean, default=False)
     # IDs of other exercises in this table; the import script validates them.
     substitute_ids: Mapped[list[str]] = mapped_column(JSON, default=list)
+    # Other muscle groups the exercise works (data/secondary_muscles.json). Library search uses both.
+    secondary_muscles: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]")
     # Short coaching cues, filled in by hand later.
     form_tips: Mapped[str | None] = mapped_column(Text, nullable=True)
     # False if the exercise was removed from the JSON. It's kept (old plans and

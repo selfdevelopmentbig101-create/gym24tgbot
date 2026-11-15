@@ -4,6 +4,7 @@ Load data/core_exercises.json into the `exercises` table.
 - Every problem in the file is collected and reported at once, so you can fix
   them all in one go.
 - Re-running is safe: existing rows are updated, new ones added.
+- secondary_muscles: from data/secondary_muscles.json (or the entry itself), validated.
 - form_tips: if an entry has a "form_tips" key, it's imported; otherwise the
   value already in the database is kept (so tips added in the DB aren't lost).
 - Exercises removed from the JSON are marked inactive, not deleted, because
@@ -26,6 +27,7 @@ logger = logging.getLogger(__name__)
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 EXERCISES_FILE = DATA_DIR / "core_exercises.json"
 INJURY_FILE = DATA_DIR / "injury_exclusions.json"
+SECONDARY_MUSCLES_FILE = DATA_DIR / "secondary_muscles.json"
 
 DIFFICULTIES = ("beginner", "intermediate", "advanced")
 MOVEMENT_TYPES = ("compound", "isolation")
@@ -114,14 +116,53 @@ def validate_exercises(records: object) -> list[dict]:
     return records
 
 
-def load_exercises_file(path: Path = EXERCISES_FILE) -> list[dict]:
+def load_exercises_file(path: Path = EXERCISES_FILE,
+                        muscles_path: Path | None = None) -> list[dict]:
+    """The validated exercise list, with secondary muscles merged in (if the file has none)."""
     try:
         records = json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
         raise ExerciseDataError([f"File not found: {path}"]) from None
     except json.JSONDecodeError as error:
         raise ExerciseDataError([f"Invalid JSON in {path.name}: {error}"]) from None
-    return validate_exercises(records)
+    records = validate_exercises(records)
+    if muscles_path is None:
+        muscles_path = path.parent / SECONDARY_MUSCLES_FILE.name
+    secondary = load_secondary_muscles(records, muscles_path)
+    for entry in records:
+        entry.setdefault("secondary_muscles", secondary.get(entry["id"], []))
+    return records
+
+
+def load_secondary_muscles(records: list[dict], path: Path = SECONDARY_MUSCLES_FILE) -> dict[str, list[str]]:
+    """exercise id -> secondary muscle groups. Keys starting with '_' are comments."""
+    if not path.exists():
+        return {}
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as error:
+        raise ExerciseDataError([f"Invalid JSON in {path.name}: {error}"]) from None
+    primary = {entry["id"]: entry["muscle_group"] for entry in records}
+    groups = set(primary.values())
+    problems, result = [], {}
+    for ex_id, muscles in raw.items():
+        if ex_id.startswith("_"):
+            continue
+        if ex_id not in primary:
+            problems.append(f"{path.name}: unknown exercise '{ex_id}'")
+            continue
+        if not isinstance(muscles, list) or not all(isinstance(m, str) for m in muscles):
+            problems.append(f"{path.name}: '{ex_id}' must be a list of muscle groups")
+            continue
+        problems += [f"{path.name}: '{ex_id}' lists unknown muscle group '{m}'" for m in muscles if m not in groups]
+        if primary[ex_id] in muscles:
+            problems.append(f"{path.name}: '{ex_id}' lists its primary muscle as secondary")
+        if len(set(muscles)) != len(muscles):
+            problems.append(f"{path.name}: '{ex_id}' has duplicate muscles")
+        result[ex_id] = muscles
+    if problems:
+        raise ExerciseDataError(problems)
+    return result
 
 
 def load_injury_rules(known_ids: set[str], path: Path = INJURY_FILE) -> dict[str, set[str]]:
@@ -153,6 +194,7 @@ async def import_exercises(session: AsyncSession, records: list[dict]) -> Import
 
     for position, entry in enumerate(records):
         values = {name: entry[name] for name in columns}
+        values["secondary_muscles"] = list(entry.get("secondary_muscles") or [])
         if "form_tips" in entry:
             values["form_tips"] = (entry["form_tips"] or "").strip() or None
         values["active"] = True

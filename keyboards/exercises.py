@@ -4,6 +4,7 @@ from aiogram.types import InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from keyboards.workout import WorkoutCB
+from keyboards.menu import open_app_button
 from utils.texts import label, t
 
 
@@ -35,6 +36,9 @@ def groups_keyboard(groups: list[str]) -> InlineKeyboardMarkup:
     for group in groups:
         builder.button(text=label("muscle", group), callback_data=LibCB(group=group))
     builder.adjust(2)
+    app_button = open_app_button("train", "btn_library_in_app")
+    if app_button is not None:
+        builder.row(app_button)  # search, filters and images live in the Mini App
     return builder.as_markup()
 
 

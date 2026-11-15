@@ -18,7 +18,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from api.notify import Notifier, make_notifier, no_notifier
-from api.routes import me, profile, system
+from api.routes import exercises, me, profile, system
 from api.static import CachedStaticFiles, MiniAppFiles
 from config import config
 from database.base import make_engine, make_session_factory
@@ -34,7 +34,8 @@ MINIAPP_BUILD = ROOT / "miniapp" / "dist"
 
 
 def create_app(session_factory: async_sessionmaker | None = None,
-               bot_token: str | None = None, notifier: Notifier | None = None) -> FastAPI:
+               bot_token: str | None = None, notifier: Notifier | None = None,
+               exercise_images: Path | None = None, admin_ids: set[int] | None = None) -> FastAPI:
     """Build the app. Tests pass their own session factory and a fake token."""
 
     @asynccontextmanager
@@ -64,6 +65,8 @@ def create_app(session_factory: async_sessionmaker | None = None,
     if notifier is None:
         notifier = make_notifier(app.state.bot_token) if session_factory is None else no_notifier
     app.state.notifier = notifier
+    app.state.exercise_images = exercise_images or EXERCISE_IMAGES
+    app.state.admin_ids = set(config.admin_ids if admin_ids is None else admin_ids)
 
     @app.middleware("http")
     async def log_requests(request: Request, call_next):
@@ -81,10 +84,11 @@ def create_app(session_factory: async_sessionmaker | None = None,
     app.include_router(system.router)
     app.include_router(me.router)
     app.include_router(profile.router)
+    app.include_router(exercises.router)
 
     # Exercise images (public, no user data), cached for a week.
     app.mount("/static/exercises",
-              CachedStaticFiles(directory=EXERCISE_IMAGES, check_dir=False), name="exercises")
+              CachedStaticFiles(directory=app.state.exercise_images, check_dir=False), name="exercises")
     # The built Mini App, if present (npm run build in miniapp/). Mounted last.
     if MINIAPP_BUILD.is_dir():
         app.mount("/", MiniAppFiles(directory=MINIAPP_BUILD, html=True), name="miniapp")

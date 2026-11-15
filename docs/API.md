@@ -53,9 +53,15 @@ factor, goal surplus within safety limits, protein 1.6–2.2 g/kg, fat 25% of ca
 gain rate (middle of the range; earliest/latest use its ends).
 
 ### Stage 3: exercises
-| GET | `/api/exercises?q=&muscle=&equipment=&difficulty=&home=` | search (primary **or** secondary muscle) |
-| GET | `/api/exercises/{id}` | detail: images, muscles, form tips, substitutes |
-| GET | `/api/exercises/media-report` | which exercises have both frames, one, or none (admin) |
+| Method | Path | Purpose |
+|---|---|---|
+| ✅ GET | `/api/exercises?q=&muscle=&equipment=&difficulty=&home=&fits=` | A–Z list. `q` matches the name or a muscle in any language; `muscle` matches primary **or** secondary; `fits=true` keeps only what fits your equipment, level and injuries. Also returns the chip/filter values |
+| ✅ GET | `/api/exercises/{id}` | detail: image URLs (start + peak = animated, or one still), muscles, form tips, why it isn’t in your plans (`equipment` / `level` / `injury`), substitutes (curated first, ones that fit first) |
+| ✅ GET | `/api/exercises/media-report` | admins only (`ADMIN_IDS`, else 403): which exercises have both frames, one image, or none |
+
+"Fits" uses the same rules as plan generation (`services/exercises.py`), so the library and
+plans never disagree. Images are read from `assets/exercises/` (`{id}-start` + `{id}-peak`, or
+`{id}`), the same files the bot uses; URLs carry a version, so replacing a file shows up at once.
 
 ### Stage 4: plans and programs
 | GET | `/api/programs?tab=current\|available\|created` | program lists |

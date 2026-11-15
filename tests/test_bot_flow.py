@@ -993,3 +993,20 @@ async def test_main_menu_settings_and_open_app(env):
     await u.tap("Yes, delete")
     last = u.last_call("SendMessage")
     assert "deleted" in last.text and type(last.reply_markup).__name__ == "ReplyKeyboardRemove"
+
+
+async def test_exercise_library_links_to_the_mini_app(env):
+    from config import config
+
+    u = FakeUser(env, 19191)
+    await u.send("/exercises")
+    assert not any(b.web_app for row in u.last_markup().inline_keyboard for b in row)
+    object.__setattr__(config, "miniapp_url", "https://gym24.example.com")
+    try:
+        await u.send("📚 Exercises")
+        button = u.last_markup().inline_keyboard[-1][0]
+        assert "Gym24" in button.text and button.web_app.url == "https://gym24.example.com/train"
+        await u.tap("Chest")                 # the chat library still works
+        assert "Barbell Bench Press" in u.last_text() or "Chest" in u.last_text()
+    finally:
+        object.__setattr__(config, "miniapp_url", "")

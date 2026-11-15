@@ -72,18 +72,21 @@ def miniapp_ready() -> bool:
     return config.miniapp_url.startswith("https://")
 
 
-def open_app_keyboard(path: str = "") -> InlineKeyboardMarkup | None:
+def open_app_button(path: str = "", text_key: str = "btn_open_gym24") -> InlineKeyboardButton | None:
     """
-    Inline button that opens Gym24. Inline web_app buttons (like the menu button)
-    send signed initData; reply-keyboard ones don't, so the app is never opened
-    from the reply keyboard. None when MINIAPP_URL isn't an HTTPS address.
+    Inline button that opens Gym24 (at a tab, e.g. "train"). Inline web_app buttons
+    (like the menu button) send signed initData; reply-keyboard ones don't, so the
+    app is never opened from the reply keyboard. None when MINIAPP_URL isn't HTTPS.
     """
     if not miniapp_ready():
         return None
     url = config.miniapp_url + ("/" + path.lstrip("/") if path else "/")
-    return InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text=t("btn_open_gym24"), web_app=WebAppInfo(url=url))
-    ]])
+    return InlineKeyboardButton(text=t(text_key), web_app=WebAppInfo(url=url))
+
+
+def open_app_keyboard(path: str = "") -> InlineKeyboardMarkup | None:
+    button = open_app_button(path)
+    return InlineKeyboardMarkup(inline_keyboard=[[button]]) if button else None
 
 
 async def send_main_menu(message: Message, text: str) -> None:

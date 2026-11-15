@@ -50,3 +50,15 @@ export function Road() {
     </svg>
   );
 }
+
+export const Home = () => <Svg><path d="M4 11l8-6.5 8 6.5V20h-5v-5.5H9V20H4z" /></Svg>;
+export const Dumbbell = () => (
+  <Svg><path d="M6.5 8v8M17.5 8v8M3.5 10v4M20.5 10v4M6.5 12h11" /></Svg>
+);
+export const Search = () => <Svg size={20}><circle cx="11" cy="11" r="6.5" /><path d="M16 16l4 4" /></Svg>;
+export const Sliders = () => (
+  <Svg size={20}><path d="M4 7h10M18 7h2M4 17h4M12 17h8" /><circle cx="16" cy="7" r="2" /><circle cx="10" cy="17" r="2" /></Svg>
+);
+export const ChevronRight = () => <Svg size={18}><path d="M9 6l6 6-6 6" /></Svg>;
+export const Info = () => <Svg size={20}><circle cx="12" cy="12" r="8.5" /><path d="M12 11v5M12 8v.01" /></Svg>;
+export const Swap = () => <Svg size={20}><path d="M7 7h11l-3-3M17 17H6l3 3" /></Svg>;

@@ -41,6 +41,10 @@ def _column_sql(connection: Connection, column) -> str:
     """'name TYPE [NOT NULL DEFAULT x]' for ALTER TABLE ADD COLUMN."""
     type_sql = column.type.compile(dialect=connection.dialect)
     default = column.default.arg if column.default is not None and column.default.is_scalar else None
+    if default is None and column.server_default is not None:
+        server = str(column.server_default.arg)
+        if not column.nullable:
+            return f'"{column.name}" {type_sql} NOT NULL DEFAULT \'{server}\''
     if column.nullable or default is None:
         # SQLite can't add a NOT NULL column without a default; nullable is safe here.
         return f'"{column.name}" {type_sql}'

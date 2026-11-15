@@ -103,12 +103,13 @@ Profile incomplete ─► Onboarding ✅ (1 question per screen, n of N, draft k
                        ─► "Your custom plan is ready" ✅ (goal date + calories/protein/carbs/fat)
                        ─► chat gets the main menu
                        Until the Home tab exists, the targets screen is the app's main screen.
-Tabs:  Home │ Plan │ Train │ Stats │ Profile        (unbuilt tabs hidden)
+Tabs:  Home │ Plan │ Train │ Stats │ Profile        (unbuilt tabs hidden; built: Home ✅, Train ✅ library)
 Home    greeting · character · next workout · weekly summary
 Plan    calendar · current program · program details · all programs
         (Current / Available / Created) · create program · split editor
 Train   workout day · live logger (rest timer, supersets, notes) · finish summary
-        └─► Exercise Library (search, muscle chips, filters, A–Z) ─► exercise detail
+        └─► Exercise Library ✅ (search, muscle chips, filters, A–Z) ─► exercise detail ✅
+            (/train, /exercise/{id}; chat 📚 Exercises links to /train)
 Stats   consistency grid · weekly volume per muscle · PRs · weight and measurements
 Profile character · level · achievements · edit profile · language · reminders
         · credits · delete my data
@@ -123,7 +124,7 @@ serves the app for any path, so the bot's inline buttons can link to a tab.
 |---|---|
 | 0 ✅ | Alembic migrations; `users.language` (empty = not chosen); `users.language_code` removed; SQLite WAL mode |
 | 2 ✅ | `profiles.target_weight_kg` (optional goal weight, for the estimated goal date) |
-| 3 | `exercises.secondary_muscles`, `exercises.visual_type` ("images") |
+| 3 ✅ | `exercises.secondary_muscles` (from `data/secondary_muscles.json`). Image type is read from the files, so no column is needed |
 | 4 | `programs` (name, weeks, workouts/week, goal, status); plan days belong to a program |
 | 5 | set fields: RPE, warm-up flag, superset group, note per exercise |
 | 6 | XP events and level state |

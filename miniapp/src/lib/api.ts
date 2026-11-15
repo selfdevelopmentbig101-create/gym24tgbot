@@ -144,3 +144,56 @@ export const acceptDisclaimer = () => api<null>("/api/me/disclaimer", { method: 
 export const saveProfile = (profile: Profile) =>
   api<ProfileSaved>("/api/profile", { method: "PUT", body: profile });
 export const getTargets = () => api<Targets>("/api/targets");
+
+// ---------- Stage 3: exercise library ----------
+
+export interface ExerciseItem {
+  id: string;
+  name: string;
+  muscle_group: string;
+  secondary_muscles: string[];
+  equipment: string;
+  difficulty: string;
+  movement_type: string;
+  home_friendly: boolean;
+  image: string | null;
+  fits: boolean | null;
+}
+
+export interface ExerciseList {
+  items: ExerciseItem[];
+  total: number;
+  muscles: string[];
+  equipment: string[];
+  difficulties: string[];
+}
+
+export interface ExerciseDetail extends ExerciseItem {
+  media: { kind: "animation" | "photo" | null; start: string | null; peak: string | null; still: string | null };
+  form_tips: string | null;
+  reasons: ("equipment" | "level" | "injury")[];
+  substitutes: ExerciseItem[];
+}
+
+export interface LibraryQuery {
+  q: string;
+  muscle: string | null;
+  equipment: string | null;
+  difficulty: string | null;
+  home: boolean;
+  fits: boolean;
+}
+
+export function getExercises(query: LibraryQuery): Promise<ExerciseList> {
+  const params = new URLSearchParams();
+  if (query.q.trim()) params.set("q", query.q.trim().slice(0, 60));
+  if (query.muscle) params.set("muscle", query.muscle);
+  if (query.equipment) params.set("equipment", query.equipment);
+  if (query.difficulty) params.set("difficulty", query.difficulty);
+  if (query.home) params.set("home", "true");
+  if (query.fits) params.set("fits", "true");
+  const qs = params.toString();
+  return api<ExerciseList>("/api/exercises" + (qs ? "?" + qs : ""));
+}
+
+export const getExercise = (id: string) => api<ExerciseDetail>("/api/exercises/" + encodeURIComponent(id));

@@ -65,6 +65,7 @@ async def test_phase1_database_is_adopted_and_keeps_data(db_url):
             "ALTER TABLE profiles DROP COLUMN target_weight_kg",
             "ALTER TABLE exercises DROP COLUMN active",
             "ALTER TABLE exercises DROP COLUMN sort_order",
+            "ALTER TABLE exercises DROP COLUMN secondary_muscles",
             "INSERT INTO users (id, telegram_id, created_at, disclaimer_accepted_at, language_code) "
             "VALUES (1, 4242, '2026-11-01 10:00:00', '2026-11-01 10:01:00', 'ru')",
             "INSERT INTO profiles VALUES (1, 1, 'lean_bulk', 27, 'male', 180, 75, 'beginner', 3, "

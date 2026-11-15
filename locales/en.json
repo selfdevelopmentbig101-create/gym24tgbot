@@ -503,5 +503,6 @@
  "settings_menu": "⚙️ <b>Settings</b>\nChoose an option below 👇",
  "btn_open_gym24": "📱 Open Gym24",
  "app_promo": "📱 <b>Gym24 app</b>\nYour plan, workouts and progress in a full-screen app. You can also open it with the <b>Gym24</b> button next to the message box.",
- "app_setup_done": "✅ <b>Your Gym24 profile is set up!</b>\nYour workout plan and daily targets are ready. Use the menu below 👇"
+ "app_setup_done": "✅ <b>Your Gym24 profile is set up!</b>\nYour workout plan and daily targets are ready. Use the menu below 👇",
+ "btn_library_in_app": "🔎 Search the library in Gym24"
 }

@@ -503,5 +503,6 @@
  "settings_menu": "⚙️ <b>Sozlamalar</b>\nQuyidagilardan birini tanlang 👇",
  "btn_open_gym24": "📱 Gym24 ni ochish",
  "app_promo": "📱 <b>Gym24 ilovasi</b>\nReja, mashg‘ulotlar va natijalar to‘liq ekranli ilovada. Uni xabar maydoni yonidagi <b>Gym24</b> tugmasi bilan ham ochish mumkin.",
- "app_setup_done": "✅ <b>Gym24 profilingiz tayyor!</b>\nMashg‘ulot rejasi va kunlik maqsadlar tayyor. Quyidagi menyudan foydalaning 👇"
+ "app_setup_done": "✅ <b>Gym24 profilingiz tayyor!</b>\nMashg‘ulot rejasi va kunlik maqsadlar tayyor. Quyidagi menyudan foydalaning 👇",
+ "btn_library_in_app": "🔎 Gym24 da kutubxonadan qidirish"
 }

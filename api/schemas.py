@@ -127,3 +127,47 @@ class ProfileSaved(BaseModel):
 
 
 ConfigOut.model_rebuild()  # resolves the "ProfileRules" forward reference
+
+
+# ---------- Stage 3: exercise library ----------
+
+class ExerciseItem(BaseModel):
+    id: str
+    name: str
+    muscle_group: str = Field(description="Primary muscle")
+    secondary_muscles: list[str]
+    equipment: str
+    difficulty: str
+    movement_type: str
+    home_friendly: bool
+    image: str | None = Field(description="Thumbnail URL; null = no image yet")
+    fits: bool | None = Field(description="Fits the user's equipment, level and injuries; null = no profile yet")
+
+
+class ExerciseList(BaseModel):
+    items: list[ExerciseItem] = Field(description="A-Z by name")
+    total: int = Field(description="Exercises in the library (before filters)")
+    muscles: list[str] = Field(description="Muscle groups, in curated order (for the chips)")
+    equipment: list[str]
+    difficulties: list[str]
+
+
+class ExerciseMedia(BaseModel):
+    kind: Literal["animation", "photo"] | None
+    start: str | None
+    peak: str | None
+    still: str | None
+
+
+class ExerciseDetail(ExerciseItem):
+    media: ExerciseMedia
+    form_tips: str | None
+    reasons: list[Literal["equipment", "level", "injury"]] = Field(
+        description="Why it isn't in your plans (empty = fits)")
+    substitutes: list[ExerciseItem]
+
+
+class MediaReport(BaseModel):
+    both: list[str] = Field(description="Start and peak images: animated")
+    one: list[str] = Field(description="One image: shown as a still")
+    none: list[str]
