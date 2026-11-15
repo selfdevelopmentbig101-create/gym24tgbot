@@ -120,3 +120,61 @@ async def test_upgrade_from_0001_keeps_profiles(db_url):
         row = (await conn.execute(text("SELECT goal, weight_kg, target_weight_kg FROM profiles"))).one()
     assert tuple(row) == ("bulk", 60, None)
     await engine.dispose()
+
+
+async def test_upgrade_to_programs_keeps_the_plan_as_current(db_url):
+    from alembic import command
+    from database.migrate import _alembic_config
+
+    engine = make_engine(db_url)
+    async with engine.begin() as conn:
+        await conn.run_sync(lambda c: command.upgrade(_alembic_config(c), "0002"))
+        await conn.execute(text(
+            "INSERT INTO exercises (id, name, muscle_group, equipment, difficulty, movement_type, "
+            "home_friendly, substitute_ids, active, sort_order) VALUES "
+            "('squat', 'Squat', 'quads', 'barbell', 'beginner', 'compound', 0, '[]', 1, 0)"))
+        await conn.execute(text("INSERT INTO users (id, telegram_id, created_at, trial_used) "
+                                "VALUES (1, 4242, '2026-11-01 10:00:00', 0)"))
+        await conn.execute(text("INSERT INTO workout_plans (id, user_id, split, created_at) "
+                                "VALUES (1, 1, 'upper_lower', '2026-11-02 09:00:00')"))
+        for i in range(4):
+            await conn.execute(text(f"INSERT INTO plan_days (id, plan_id, day_index, name_key, suffix) "
+                                    f"VALUES ({i + 1}, 1, {i}, 'upper', 'A')"))
+            await conn.execute(text(f"INSERT INTO plan_exercises (day_id, position, exercise_id, sets, "
+                                    f"rep_min, rep_max, timed, rest_seconds) "
+                                    f"VALUES ({i + 1}, 0, 'squat', 3, 8, 12, 0, 120)"))
+
+    await prepare_database(engine)
+
+    version, diffs, _ = await _state(engine)
+    assert version == _head() and diffs == []
+    async with engine.begin() as conn:
+        row = (await conn.execute(text(
+            "SELECT kind, template_days, is_current, edited, weeks, goal, started_on FROM workout_plans"))).one()
+        assert tuple(row) == ("template", 4, 1, 0, 8, "hypertrophy", "2026-11-02")
+        # Table rebuilds must not cascade-delete children (days, their exercises).
+        counts = (await conn.execute(text(
+            "SELECT (SELECT COUNT(*) FROM plan_days), (SELECT COUNT(*) FROM plan_exercises)"))).one()
+        assert tuple(counts) == (4, 4)
+        fk = (await conn.execute(text("PRAGMA foreign_keys"))).scalar()
+        assert fk == 1                       # switched back on after migrating
+        # Several programs per user are allowed now.
+        await conn.execute(text("INSERT INTO workout_plans (user_id, split, created_at, is_current) "
+                                "VALUES (1, 'custom', '2026-11-03', 0)"))
+    await engine.dispose()
+
+
+async def test_legacy_unique_plan_index_is_replaced_on_adoption(db_url):
+    engine = make_engine(db_url)
+    legacy = MetaData()
+    for name in ("users", "profiles", "exercises", "workout_plans", "plan_days"):
+        Base.metadata.tables[name].to_metadata(legacy)
+    async with engine.begin() as conn:
+        await conn.run_sync(legacy.create_all)
+        for sql in ("DROP INDEX ix_workout_plans_user_id",
+                    "CREATE UNIQUE INDEX ix_workout_plans_user_id ON workout_plans (user_id)"):
+            await conn.execute(text(sql))
+    await prepare_database(engine)
+    _, diffs, _ = await _state(engine)
+    assert diffs == []
+    await engine.dispose()

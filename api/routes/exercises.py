@@ -20,7 +20,7 @@ def _user_filter(user: User) -> UserFilter | None:
     return UserFilter.from_profile(user.profile) if user.profile is not None else None
 
 
-def _item(ex: Exercise, request: Request, user: UserFilter | None) -> ExerciseItem:
+def exercise_item(ex: Exercise, request: Request, user: UserFilter | None) -> ExerciseItem:
     return ExerciseItem(
         id=ex.id, name=ex.name, muscle_group=ex.muscle_group,
         secondary_muscles=list(ex.secondary_muscles or []), equipment=ex.equipment,
@@ -52,7 +52,7 @@ async def list_exercises(
         if ex.muscle_group not in muscles:
             muscles.append(ex.muscle_group)
     return ExerciseList(
-        items=[_item(ex, request, user_filter) for ex in found],
+        items=[exercise_item(ex, request, user_filter) for ex in found],
         total=len(catalog),
         muscles=muscles,
         equipment=sorted({ex.equipment for ex in catalog}),
@@ -81,10 +81,10 @@ async def get_exercise(exercise_id: str, request: Request, user: User = Depends(
     user_filter = _user_filter(user)
     m = library.media(ex.id, request.app.state.exercise_images)
     return ExerciseDetail(
-        **_item(ex, request, user_filter).model_dump(),
+        **exercise_item(ex, request, user_filter).model_dump(),
         media=ExerciseMedia(kind=m.kind, start=m.start, peak=m.peak, still=m.still),
         form_tips=(ex.form_tips or "").strip() or None,
         reasons=[] if user_filter is None else library.unavailable_reasons(ex, user_filter),
-        substitutes=[_item(s, request, user_filter)
+        substitutes=[exercise_item(s, request, user_filter)
                      for s in library.substitutes(ex, catalog, user_filter)],
     )
