@@ -30,7 +30,7 @@ import { Logger } from "./screens/Logger";
 import { Profile } from "./screens/Profile";
 import { ProfileEdit } from "./screens/ProfileEdit";
 import { Home } from "./screens/Home";
-import { Targets } from "./screens/Targets";
+import { Targets as TargetsScreen } from "./screens/Targets";
 import { Onboarding } from "./screens/Onboarding";
 import { Plan } from "./screens/Plan";
 import { PlanReady } from "./screens/PlanReady";
@@ -142,7 +142,7 @@ export function App() {
     } else if (route.name === "profileEdit") {
       screen = <ProfileEdit t={t} config={state.config} />;
     } else if (route.name === "targets") {
-      screen = <Targets targets={state.targets} lang={lang} t={t} />;
+      screen = <TargetsScreen targets={state.targets} lang={lang} t={t} />;
     } else if (!state.justFinished) {
       screen = <Home t={t} name={state.me.first_name} locale={locale} />;
     } else {
