@@ -159,7 +159,7 @@ Manual test in Telegram:
    **Next** moves through the day; **Substitute** swaps the exercise in your
    plan for one that fits your equipment and injuries.
 3. `/exercises` -> pick a muscle group -> browse with **Next** / **Substitute**.
-4. `/settings` -> **Edit profile** -> **Equipment** -> **Bodyweight only**.
+4. **⚙️ Settings** -> **✏️ Edit profile** -> **Equipment** -> **Bodyweight only**.
    Your plan is rebuilt with bodyweight exercises.
 5. `/workout` -> **Start workout**. The card shows the target, last time's
    numbers and a suggestion. Tap **✅ Log ...** (1 tap), or adjust with

@@ -1,16 +1,21 @@
-"""/start, /help, /about, /cancel, /language and the health disclaimer."""
+"""/start, /help, /about, /cancel, /language, the health disclaimer and the main menu."""
 import logging
 
 from aiogram import Bot, F, Router
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import config
+from database.models import User
 from handlers.onboarding import ask_step, send_or_edit, start_onboarding, step_from_state
-from keyboards.profile import LangCB, MenuCB, disclaimer_keyboard, language_keyboard
+from keyboards.menu import (MenuButton, main_menu_keyboard, send_main_menu,
+                            settings_menu_keyboard)
+from keyboards.profile import (LangCB, MenuCB, disclaimer_keyboard, first_language_prompt,
+                               language_keyboard)
 from services import users
 from utils.commands import set_chat_commands
 from utils.texts import SUPPORTED_LANGUAGES, set_language, t
@@ -19,15 +24,11 @@ logger = logging.getLogger(__name__)
 router = Router(name="common")
 
 
-@router.message(CommandStart())
-async def cmd_start(message: Message, state: FSMContext, session: AsyncSession) -> None:
-    user = await users.get_or_create_user(
-        session, message.from_user.id
-    )
-
+async def continue_start(message: Message, state: FSMContext, user: User) -> None:
+    """Everything /start does once the language is known."""
     if user.profile is not None:
         await state.clear()
-        await message.answer(t("start_welcome_back"))
+        await send_main_menu(message, t("start_welcome_back"))
         return
 
     if user.disclaimer_accepted_at is None:
@@ -43,6 +44,16 @@ async def cmd_start(message: Message, state: FSMContext, session: AsyncSession) 
     await start_onboarding(message, state)
 
 
+@router.message(CommandStart())
+async def cmd_start(message: Message, state: FSMContext, session: AsyncSession) -> None:
+    user = await users.get_or_create_user(session, message.from_user.id)
+    if user.language is None:
+        # Asked once: the choice is saved and shared with the Mini App.
+        await message.answer(first_language_prompt(), reply_markup=language_keyboard(first=True))
+        return
+    await continue_start(message, state, user)
+
+
 @router.callback_query(MenuCB.filter(F.action == "accept_disclaimer"))
 async def on_accept_disclaimer(callback: CallbackQuery, state: FSMContext,
                                session: AsyncSession) -> None:
@@ -56,7 +67,7 @@ async def on_accept_disclaimer(callback: CallbackQuery, state: FSMContext,
     if user.disclaimer_accepted_at is None:
         await users.accept_disclaimer(session, user)
     if user.profile is not None:
-        await callback.message.answer(t("start_welcome_back"))
+        await send_main_menu(callback.message, t("start_welcome_back"))
         return
 
     await callback.message.answer(t("onboarding_intro"))
@@ -68,9 +79,17 @@ async def cmd_help(message: Message) -> None:
     await message.answer(t("help"))
 
 
+def _about_keyboard() -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.button(text=t("btn_disclaimer"), callback_data=MenuCB(action="show_disclaimer"))
+    return builder.as_markup()
+
+
 @router.message(Command("about"))
+@router.message(MenuButton("menu_about"))
 async def cmd_about(message: Message) -> None:
-    await message.answer(t("about", attribution=config.exercise_image_attribution))
+    await message.answer(t("about", attribution=config.exercise_image_attribution),
+                         reply_markup=_about_keyboard())
 
 
 @router.message(Command("cancel"))
@@ -82,9 +101,23 @@ async def cmd_cancel(message: Message, state: FSMContext) -> None:
     await message.answer(t("cancelled"))
 
 
+# ---------- Menus ----------
+
+@router.message(Command("settings"))
+@router.message(MenuButton("menu_settings"))
+async def cmd_settings(message: Message) -> None:
+    await message.answer(t("settings_menu"), reply_markup=settings_menu_keyboard())
+
+
+@router.message(MenuButton("menu_back"))
+async def on_back_to_menu(message: Message) -> None:
+    await message.answer(t("menu_main"), reply_markup=main_menu_keyboard())
+
+
 # ---------- Language ----------
 
 @router.message(Command("language"))
+@router.message(MenuButton("menu_language"))
 async def cmd_language(message: Message) -> None:
     await message.answer(t("language_pick"), reply_markup=language_keyboard())
 
@@ -97,7 +130,7 @@ async def on_language_menu(callback: CallbackQuery) -> None:
 
 @router.callback_query(LangCB.filter())
 async def on_language(callback: CallbackQuery, callback_data: LangCB, bot: Bot,
-                      session: AsyncSession) -> None:
+                      state: FSMContext, session: AsyncSession) -> None:
     if callback_data.code not in SUPPORTED_LANGUAGES:
         await callback.answer(t("stale_button"))
         return
@@ -111,7 +144,13 @@ async def on_language(callback: CallbackQuery, callback_data: LangCB, bot: Bot,
         logger.warning("Could not update the command menu language")
 
     if user.disclaimer_accepted_at is None:
-        # Still on the first screen: show the disclaimer again in the new language.
+        # Still on the first screen: show the disclaimer (again) in the new language.
         await send_or_edit(callback, t("disclaimer"), disclaimer_keyboard())
-    else:
-        await send_or_edit(callback, t("language_changed"))
+        return
+
+    await send_or_edit(callback, t("language_changed"))
+    if callback_data.first:
+        await continue_start(callback.message, state, user)
+    elif user.profile is not None:
+        # Re-send the menu so its labels are in the new language.
+        await callback.message.answer(t("menu_main"), reply_markup=main_menu_keyboard())

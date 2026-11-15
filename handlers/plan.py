@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database.models import WorkoutPlan
 from handlers.cards import day_label, format_reps, plan_card, show_card
 from handlers.onboarding import send_or_edit
+from keyboards.menu import MenuButton
 from keyboards.exercises import PlanCB, plan_keyboard
 from services import plans, users
 from utils.texts import t
@@ -53,6 +54,7 @@ async def _show_overview(event: Message | CallbackQuery, plan: WorkoutPlan, head
 
 
 @router.message(Command("plan"))
+@router.message(MenuButton("menu_plan"))
 async def cmd_plan(message: Message, session: AsyncSession) -> None:
     user = await _load_user(message, session)
     if user is None:

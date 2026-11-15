@@ -1,5 +1,5 @@
 {
- "start_welcome_back": "💪 Welcome back! Your profile is set up.\n\n/profile — your targets\n/settings — edit profile\n/help — all commands",
+ "start_welcome_back": "💪 Welcome back! Your profile is set up.\n\nUse the menu below 👇 or /help for all commands.",
  "help": "<b>Commands</b>\n/start — start or resume setup\n/workout — start or continue today's workout\n/app — full-screen workout logger (Mini App)\n/plan — your workout plan\n/food — log meals, daily calories and protein\n/progress — weight, PRs and charts\n/weight — log body weight (e.g. /weight 75.4)\n/measure — log a body measurement\n/achievements — streaks and achievements\n/reminders — workout and weigh-in reminders\n/exercises — exercise library\n/profile — your profile and daily calorie/protein targets\n/premium — Premium features\n/language — change language\n/settings — edit profile, disclaimer, delete data\n/about — about this bot and credits\n/paysupport — help with payments\n/deleteme — permanently delete all your data\n/cancel — stop the current step",
  "about": "<b>Muscle Gain Bot</b>\nWorkout plans, logging, progress tracking and nutrition targets for bulking, lean bulking and recomposition.\n\nNutrition targets use the Mifflin-St Jeor equation with a moderate surplus.\n\n<b>Credits</b>\n{attribution}",
  "need_profile": "You don't have a profile yet. Send /start to set one up (about 1 minute).",
@@ -484,5 +484,23 @@
  "app_open": "📱 <b>Day {n} · {name}</b>\nTap the button below to open the logger. When you're done, tap <b>Finish and save</b> in the app.",
  "app_bad_data": "😕 I couldn't read the data from the app. Please try again with /app.",
  "app_skipped": "⚠️ {n} set(s) had invalid values and were skipped.",
- "workout_app_hint": "📱 Prefer a full-screen logger? /app"
+ "workout_app_hint": "📱 Prefer a full-screen logger? /app",
+ "menu_workout": "🏋️ Workout",
+ "menu_plan": "📅 Plan",
+ "menu_exercises": "📚 Exercises",
+ "menu_progress": "📊 Progress",
+ "menu_food": "🥗 Nutrition",
+ "menu_profile": "👤 Profile",
+ "menu_settings": "⚙️ Settings",
+ "menu_language": "🌐 Language",
+ "menu_reminders": "🔔 Reminders",
+ "menu_edit_profile": "✏️ Edit profile",
+ "menu_about": "ℹ️ About",
+ "menu_delete": "🗑 Delete my data",
+ "menu_back": "⬅️ Back to menu",
+ "menu_main": "👇 Main menu",
+ "menu_ready": "👇 Everything is in the menu below. /help lists all commands.",
+ "settings_menu": "⚙️ <b>Settings</b>\nChoose an option below 👇",
+ "btn_open_gym24": "📱 Open Gym24",
+ "app_promo": "📱 <b>Gym24 app</b>\nYour plan, workouts and progress in a full-screen app. You can also open it with the <b>Gym24</b> button next to the message box."
 }

@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database.enums import Injury
 from database.models import Profile
 from keyboards.profile import NavCB, ProfileCB, injuries_keyboard, profile_keyboard, step_keyboard
+from keyboards.menu import send_main_menu
 from services import plans, users
 from services.validation import ValidationError
 from utils.formatting import format_field_value, format_profile_with_targets
@@ -160,6 +161,8 @@ async def advance(event: Message | CallbackQuery, state: FSMContext,
     plan = await plans.generate_for_user(session, user)
     footer = (t("plan_ready") + "\n" if plan else "") + t("reminders_hint")
     await show_profile(event, profile, t("onboarding_done"), footer)
+    message = event.message if isinstance(event, CallbackQuery) else event
+    await send_main_menu(message, t("menu_ready"))
 
 
 # ---------- Button answers ----------

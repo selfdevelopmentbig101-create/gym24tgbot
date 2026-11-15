@@ -21,6 +21,7 @@ from config import config
 from database.models import Exercise, User, WorkoutPlan, WorkoutSession
 from handlers.cards import day_label, format_rest
 from handlers.onboarding import send_or_edit
+from keyboards.menu import MenuButton
 from keyboards.workout import (
     WorkoutCB,
     card_keyboard,
@@ -272,6 +273,7 @@ async def _user_with_profile(event, session: AsyncSession) -> User | None:
 
 
 @router.message(Command("workout"))
+@router.message(MenuButton("menu_workout"))
 async def cmd_workout(message: Message, bot: Bot, session: AsyncSession) -> None:
     user = await _user_with_profile(message, session)
     if user is None:

@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from database.models import ReminderSettings, User
 from handlers.cards import day_label
 from handlers.onboarding import send_or_edit
+from keyboards.menu import MenuButton
 from keyboards.progress import (
     RemCB,
     days_keyboard,
@@ -81,6 +82,7 @@ async def _show(event, settings: ReminderSettings) -> None:
 
 
 @router.message(Command("reminders"))
+@router.message(MenuButton("menu_reminders"))
 async def cmd_reminders(message: Message, session: AsyncSession, state: FSMContext) -> None:
     user = await _user(message, session)
     if user is None:

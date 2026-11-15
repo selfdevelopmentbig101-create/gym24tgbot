@@ -13,6 +13,7 @@ from config import config
 from handlers import extras
 from handlers.cards import day_label
 from handlers.workout import summary_text
+from keyboards.menu import main_menu_keyboard
 from services import achievements, plans, reminders, users, webapp, workouts
 from services.scheduler import sync_user
 from utils.texts import current_language, t
@@ -63,10 +64,10 @@ async def on_app_data(message: Message, session: AsyncSession) -> None:
         summary, skipped = await webapp.apply_result(session, user, plan, day_index, sets)
     except (ValueError, KeyError, TypeError):
         logger.warning("Invalid data from the Mini App")
-        await message.answer(t("app_bad_data"), reply_markup=ReplyKeyboardRemove())
+        await message.answer(t("app_bad_data"), reply_markup=main_menu_keyboard())
         return
     if summary is None:
-        await message.answer(t("workout_discarded"), reply_markup=ReplyKeyboardRemove())
+        await message.answer(t("workout_discarded"), reply_markup=main_menu_keyboard())
         return
     logger.info("Workout logged from the Mini App (%s sets)", summary.total_sets)
     sync_user(user.id, await reminders.workout_finished(session, user))
@@ -76,5 +77,5 @@ async def on_app_data(message: Message, session: AsyncSession) -> None:
     new = await achievements.check_new(session, user)
     parts += [p for p in (extras.streak_text(await achievements.compute_stats(session, user)),
                           extras.new_achievements_text(new)) if p]
-    await message.answer("\n\n".join(parts), reply_markup=ReplyKeyboardRemove())
+    await message.answer("\n\n".join(parts), reply_markup=main_menu_keyboard())
     await extras.send_suggestions(message, session, user, calories=False)

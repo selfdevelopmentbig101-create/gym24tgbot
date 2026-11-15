@@ -4,7 +4,7 @@ import logging
 from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, Message, ReplyKeyboardRemove
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from handlers.onboarding import STEPS, send_or_edit, show_profile, start_edit
@@ -13,8 +13,8 @@ from keyboards.profile import (
     MenuCB,
     delete_confirm_keyboard,
     edit_fields_keyboard,
-    settings_keyboard,
 )
+from keyboards.menu import MenuButton
 from services import users
 from services.scheduler import sync_user
 from utils.texts import t
@@ -35,6 +35,7 @@ async def _load_profile(event: Message | CallbackQuery, session: AsyncSession):
 
 
 @router.message(Command("profile"))
+@router.message(MenuButton("menu_profile"))
 async def cmd_profile(message: Message, session: AsyncSession) -> None:
     profile = await _load_profile(message, session)
     if profile:
@@ -49,9 +50,10 @@ async def on_profile(callback: CallbackQuery, session: AsyncSession) -> None:
         await show_profile(callback, profile)
 
 
-@router.message(Command("settings"))
-async def cmd_settings(message: Message) -> None:
-    await message.answer(t("settings"), reply_markup=settings_keyboard())
+@router.message(MenuButton("menu_edit_profile"))
+async def on_edit_menu_button(message: Message, session: AsyncSession) -> None:
+    if await _load_profile(message, session):
+        await message.answer(t("edit_pick_field"), reply_markup=edit_fields_keyboard(STEPS))
 
 
 @router.callback_query(MenuCB.filter(F.action == "show_disclaimer"))
@@ -85,6 +87,7 @@ async def on_edit_field(callback: CallbackQuery, callback_data: EditCB,
 # ---------- Delete all data ----------
 
 @router.message(Command("deleteme"))
+@router.message(MenuButton("menu_delete"))
 async def cmd_deleteme(message: Message) -> None:
     await message.answer(t("delete_confirm"), reply_markup=delete_confirm_keyboard())
 
@@ -103,7 +106,12 @@ async def on_delete_yes(callback: CallbackQuery, state: FSMContext, session: Asy
         sync_user(user.id, None)  # stop their reminders
     deleted = await users.delete_user_data(session, callback.from_user.id)
     await state.clear()  # forget any half-finished form answers too
-    await send_or_edit(callback, t("delete_done" if deleted else "delete_nothing"))
+    if not deleted:
+        await send_or_edit(callback, t("delete_nothing"))
+        return
+    # A new message, because only new messages can remove the reply-keyboard menu.
+    await send_or_edit(callback, t("delete_confirm"))  # drop the Yes/No buttons
+    await callback.message.answer(t("delete_done"), reply_markup=ReplyKeyboardRemove())
 
 
 @router.callback_query(MenuCB.filter(F.action == "delete_no"))

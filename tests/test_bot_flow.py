@@ -149,6 +149,7 @@ async def env():
 
 async def onboard(u: FakeUser):
     await u.send("/start")
+    await u.tap("English")                 # first /start: language picker
     assert "Health disclaimer" in u.last_text()
     await u.tap("I understand")
     assert "Step 1/10" in u.last_text()
@@ -178,7 +179,7 @@ async def test_full_onboarding_edit_and_delete(env):
     u, session_factory = FakeUser(env, 4242), env["session_factory"]
     await onboard(u)
 
-    text = u.last_text()
+    text = u.last_call("EditMessageText").text   # the summary; the menu message follows it
     assert "All set" in text and "Daily targets" in text and "kcal" in text
     async with session_factory() as s:
         user = await users.get_user(s, u.user_id)
@@ -187,9 +188,9 @@ async def test_full_onboarding_edit_and_delete(env):
         assert p.injuries == ["knee"]
         assert user.disclaimer_accepted_at is not None
 
-    # Edit weight via /settings -> Edit profile -> Weight: 3 taps + typing.
+    # Edit weight via Settings -> Edit profile -> Weight (reply menu buttons, then a tap).
     await u.send("/settings")
-    await u.tap("Edit profile")
+    await u.send("✏️ Edit profile")
     await u.tap("Weight")
     assert "Current: <b>75 kg</b>" in u.last_text()
     await u.send("78.5")
@@ -218,6 +219,7 @@ async def test_profile_requires_onboarding_and_commands_work_mid_form(env):
     assert "/start" in u.last_text()
 
     await u.send("/start")
+    await u.tap("English")                 # first /start: language picker
     await u.tap("I understand")
     await u.tap("Bulk")
     await u.send("/about")
@@ -238,7 +240,7 @@ async def test_profile_requires_onboarding_and_commands_work_mid_form(env):
 async def test_plan_cards_and_substitute(env):
     u, session_factory = FakeUser(env, 6161), env["session_factory"]
     await onboard(u)                       # beginner, full gym, 3 days, knee injury
-    assert "plan is ready" in u.last_text()
+    assert "plan is ready" in u.last_call("EditMessageText").text
 
     await u.send("/plan")
     text = u.last_text()
@@ -273,7 +275,7 @@ async def test_plan_cards_and_substitute(env):
 
     # Changing equipment rebuilds the plan with home exercises only.
     await u.send("/settings")
-    await u.tap("Edit profile")
+    await u.send("✏️ Edit profile")
     await u.tap("Equipment")
     await u.tap("Bodyweight only")
     assert "rebuilt" in u.last_text()
@@ -351,6 +353,7 @@ async def start_trial(u):
 
 async def onboard_intermediate(u: FakeUser):
     await u.send("/start")
+    await u.tap("English")                 # first /start: language picker
     await u.tap("I understand")
     await u.tap("Lean bulk")
     for text, taps in (("27", ["Male"]), ("180", []), ("80", ["Intermediate", "4", "Full gym", "None",
@@ -662,6 +665,7 @@ async def test_vegan_sees_only_vegan_foods_and_evening_summary(env):
     from handlers.food import send_daily_summary
     u = FakeUser(env, 11222)
     await u.send("/start")
+    await u.tap("English")                 # first /start: language picker
     await u.tap("I understand")
     await u.tap("Recomposition")
     for text, taps in (("30", ["Female"]), ("165", []), ("60", ["Beginner", "3", "Home + dumbbells",
@@ -773,6 +777,11 @@ async def test_language_switch_and_telegram_language(env):
     ru = FakeUser(env, 14141)
     ru.tg_user = ru.tg_user.model_copy(update={"language_code": "ru"})
     await ru.send("/start")
+    # First /start: the language question in all three languages, nothing saved yet.
+    assert "Choose your language" in ru.last_text() and "Выбери язык" in ru.last_text()
+    async with env["session_factory"]() as s:
+        assert (await users.get_user(s, ru.user_id)).language is None
+    await ru.tap("Русский")
     assert "Предупреждение" in ru.last_text() or "медицин" in ru.last_text()
 
     # Switching to Uzbek on the first screen re-shows the disclaimer in Uzbek.
@@ -900,7 +909,7 @@ async def test_mini_app_round_trip(env):
         await u.dp.feed_update(u.bot, Update(update_id=u.update_id, message=msg))
         text = u.last_text()
         assert "Workout done: Upper A" in text and "2 sets" in text and "2 set(s) had invalid" in text
-        assert type(u.last_call("SendMessage").reply_markup).__name__ == "ReplyKeyboardRemove"
+        assert type(u.last_call("SendMessage").reply_markup).__name__ == "ReplyKeyboardMarkup"
 
         # Garbage from the app is rejected politely.
         u._next_update_id()
@@ -910,3 +919,77 @@ async def test_mini_app_round_trip(env):
         assert "couldn't read the data" in u.last_text()
     finally:
         object.__setattr__(config, "webapp_url", "")
+
+
+# ---------- Gym24 Stage 1: reply-keyboard menu, language once, Open Gym24 ----------
+
+def _reply_labels(call):
+    return [b.text for row in call.reply_markup.keyboard for b in row]
+
+
+async def test_main_menu_settings_and_open_app(env):
+    from config import config
+    from database.models import User as DbUser
+
+    u = FakeUser(env, 18181)
+    await onboard_intermediate(u)
+    # Finishing setup shows the main menu.
+    menu = u.last_call("SendMessage")
+    assert type(menu.reply_markup).__name__ == "ReplyKeyboardMarkup"
+    assert "🏋️ Workout" in _reply_labels(menu) and "⚙️ Settings" in _reply_labels(menu)
+
+    await u.send("📅 Plan")
+    assert "Your plan" in u.last_text()
+    await u.send("📅 План")                  # a keyboard sent in another language still works
+    assert "Your plan" in u.last_text()
+
+    await u.send("⚙️ Settings")
+    assert "⬅️ Back to menu" in _reply_labels(u.last_call("SendMessage"))
+    # A menu tap leaves a half-finished form instead of being read as an answer.
+    await u.send("✏️ Edit profile")
+    await u.tap("Weight")
+    await u.send("📅 Plan")
+    assert "Your plan" in u.last_text()
+    await u.send("81")
+    assert "Updated" not in u.last_text()
+    await u.send("⬅️ Back to menu")
+    assert "📊 Progress" in _reply_labels(u.last_call("SendMessage"))
+
+    # With MINIAPP_URL set, /start adds the inline Open Gym24 button (signed initData).
+    object.__setattr__(config, "miniapp_url", "https://gym24.example.com")
+    try:
+        await u.send("/start")
+        button = u.last_markup().inline_keyboard[0][0]
+        assert "Open Gym24" in button.text and button.web_app.url == "https://gym24.example.com/"
+    finally:
+        object.__setattr__(config, "miniapp_url", "")
+
+    # A user from before the picker existed (no saved language) is asked once.
+    async with env["session_factory"]() as s:
+        db_user = await users.get_user(s, u.user_id)
+        db_user.language = None
+        await s.commit()
+    await u.send("/help")
+    assert "Choose your language" in u.last_text()
+    await u.tap("English")
+    assert "Welcome back" in u.last_text()
+    await u.send("/help")
+    assert "Choose your language" not in u.last_text()
+    async with env["session_factory"]() as s:
+        assert (await s.scalar(select(DbUser.language).where(DbUser.telegram_id == u.user_id))) == "en"
+
+    # Every menu button gets an answer (none fall through unhandled).
+    from keyboards.menu import MAIN_MENU, SETTINGS_MENU
+    from utils.texts import t as text_for
+    for key in {k for rows in (MAIN_MENU, SETTINGS_MENU) for row in rows for k in row} - {"menu_delete"}:
+        before = len(u.session.calls)
+        await u.send(text_for(key, "en"))
+        sent = [c for c in u.session.calls[before:] if type(c).__name__.startswith("Send")]
+        assert sent, f"No reply to {key}"
+
+    # Deleting from the menu removes the menu keyboard too.
+    await u.send("⚙️ Settings")
+    await u.send("🗑 Delete my data")
+    await u.tap("Yes, delete")
+    last = u.last_call("SendMessage")
+    assert "deleted" in last.text and type(last.reply_markup).__name__ == "ReplyKeyboardRemove"

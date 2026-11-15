@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from handlers.cards import library_card, show_card
 from handlers.onboarding import send_or_edit
+from keyboards.menu import MenuButton
 from keyboards.exercises import LibCB, groups_keyboard
 from services import exercises as exercise_service
 from services import users
@@ -24,6 +25,7 @@ async def _groups_view(session: AsyncSession, telegram_id: int):
 
 
 @router.message(Command("exercises"))
+@router.message(MenuButton("menu_exercises"))
 async def cmd_exercises(message: Message, session: AsyncSession) -> None:
     text, keyboard = await _groups_view(session, message.from_user.id)
     await message.answer(text, reply_markup=keyboard)

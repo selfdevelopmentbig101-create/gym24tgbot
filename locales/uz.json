@@ -1,5 +1,5 @@
 {
- "start_welcome_back": "💪 Xush kelibsiz! Profilingiz tayyor.\n\n/profile — maqsadlaringiz\n/settings — profilni tahrirlash\n/help — barcha buyruqlar",
+ "start_welcome_back": "💪 Xush kelibsiz! Profilingiz tayyor.\n\nQuyidagi menyudan foydalaning 👇 yoki /help — barcha buyruqlar.",
  "help": "<b>Buyruqlar</b>\n/start — sozlashni boshlash yoki davom ettirish\n/workout — bugungi mashg‘ulotni boshlash yoki davom ettirish\n/app — to‘liq ekranli mashg‘ulot daftari (Mini App)\n/plan — mashg‘ulot rejangiz\n/food — ovqat: kunlik kaloriya va oqsil\n/progress — vazn, rekordlar va grafiklar\n/weight — vaznni yozish (masalan, /weight 75.4)\n/measure — tana o‘lchamini yozish\n/achievements — ketma-ketliklar va yutuqlar\n/reminders — mashg‘ulot va tortilish eslatmalari\n/exercises — mashqlar kutubxonasi\n/profile — profil va kunlik kaloriya/oqsil maqsadlari\n/premium — Premium imkoniyatlari\n/language — tilni o‘zgartirish\n/settings — profil, ogohlantirish, ma’lumotlarni o‘chirish\n/about — bot haqida va mualliflar\n/paysupport — to‘lov bo‘yicha yordam\n/deleteme — barcha ma’lumotlaringizni butunlay o‘chirish\n/cancel — joriy qadamni bekor qilish",
  "about": "<b>Muscle Gain Bot</b>\nMushak massasini oshirish, toza massa yig‘ish va rekompozitsiya uchun mashg‘ulot rejalari, yozuvlar, natijalarni kuzatish va ovqatlanish maqsadlari.\n\nOvqatlanish maqsadlari Mifflin-St Jeor formulasi va me’yoriy ortiqcha kaloriya asosida hisoblanadi.\n\n<b>Minnatdorchilik</b>\n{attribution}",
  "need_profile": "Sizda hali profil yo‘q. Uni sozlash uchun /start yuboring (taxminan 1 daqiqa).",
@@ -484,5 +484,23 @@
  "app_open": "📱 <b>{n}-kun · {name}</b>\nDaftarni ochish uchun pastdagi tugmani bosing. Tugatgach, ilovada <b>Tugatish va saqlash</b> ni bosing.",
  "app_bad_data": "😕 Ilovadan kelgan ma’lumotni o‘qib bo‘lmadi. /app orqali qayta urinib ko‘ring.",
  "app_skipped": "⚠️ Noto‘g‘ri qiymatli {n} ta set o‘tkazib yuborildi.",
- "workout_app_hint": "📱 To‘liq ekranli daftar kerakmi? /app"
+ "workout_app_hint": "📱 To‘liq ekranli daftar kerakmi? /app",
+ "menu_workout": "🏋️ Mashg‘ulot",
+ "menu_plan": "📅 Reja",
+ "menu_exercises": "📚 Mashqlar",
+ "menu_progress": "📊 Natijalar",
+ "menu_food": "🥗 Ovqatlanish",
+ "menu_profile": "👤 Profil",
+ "menu_settings": "⚙️ Sozlamalar",
+ "menu_language": "🌐 Til",
+ "menu_reminders": "🔔 Eslatmalar",
+ "menu_edit_profile": "✏️ Profilni tahrirlash",
+ "menu_about": "ℹ️ Bot haqida",
+ "menu_delete": "🗑 Ma’lumotlarimni o‘chirish",
+ "menu_back": "⬅️ Menyuga qaytish",
+ "menu_main": "👇 Asosiy menyu",
+ "menu_ready": "👇 Hammasi quyidagi menyuda. /help — barcha buyruqlar.",
+ "settings_menu": "⚙️ <b>Sozlamalar</b>\nQuyidagilardan birini tanlang 👇",
+ "btn_open_gym24": "📱 Gym24 ni ochish",
+ "app_promo": "📱 <b>Gym24 ilovasi</b>\nReja, mashg‘ulotlar va natijalar to‘liq ekranli ilovada. Uni xabar maydoni yonidagi <b>Gym24</b> tugmasi bilan ham ochish mumkin."
 }

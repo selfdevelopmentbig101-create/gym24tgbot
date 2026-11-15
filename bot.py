@@ -28,7 +28,8 @@ from services.rest_timer import rest_timers
 from services.scheduler import ReminderScheduler, set_scheduler
 from utils.commands import set_default_commands
 from utils.logging_setup import setup_logging
-from utils.middlewares import DbSessionMiddleware, LanguageMiddleware, RateLimitMiddleware
+from utils.middlewares import (DbSessionMiddleware, LanguageMiddleware, LanguagePromptMiddleware,
+                               MenuButtonMiddleware, RateLimitMiddleware)
 from utils.texts import t
 
 logger = logging.getLogger(__name__)
@@ -60,6 +61,8 @@ def create_dispatcher(session_factory: async_sessionmaker,
     rate_limiter = RateLimitMiddleware(rate_limit_max, rate_limit_window)
     dp.message.outer_middleware(rate_limiter)
     dp.callback_query.outer_middleware(rate_limiter)
+    dp.message.outer_middleware(MenuButtonMiddleware())
+    dp.message.outer_middleware(LanguagePromptMiddleware())
 
     dp["session_factory"] = session_factory  # handlers that work outside an update (rest timer)
     dp.include_routers(*get_routers())

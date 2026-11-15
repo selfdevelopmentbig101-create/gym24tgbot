@@ -112,16 +112,6 @@ def profile_keyboard() -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-def settings_keyboard() -> InlineKeyboardMarkup:
-    builder = InlineKeyboardBuilder()
-    builder.button(text=t("btn_edit_profile"), callback_data=MenuCB(action="edit"))
-    builder.button(text=t("btn_language"), callback_data=MenuCB(action="language"))
-    builder.button(text=t("btn_disclaimer"), callback_data=MenuCB(action="show_disclaimer"))
-    builder.button(text=t("btn_delete_data"), callback_data=MenuCB(action="delete"))
-    builder.adjust(1)
-    return builder.as_markup()
-
-
 def edit_fields_keyboard(fields: tuple[str, ...]) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     for name in fields:
@@ -141,11 +131,17 @@ def delete_confirm_keyboard() -> InlineKeyboardMarkup:
 
 class LangCB(CallbackData, prefix="lang"):
     code: str
+    first: bool = False  # True: picked on /start, so continue with the start flow
 
 
-def language_keyboard() -> InlineKeyboardMarkup:
+def language_keyboard(first: bool = False) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     for code in SUPPORTED_LANGUAGES:
-        builder.button(text=LANGUAGE_NAMES[code], callback_data=LangCB(code=code))
+        builder.button(text=LANGUAGE_NAMES[code], callback_data=LangCB(code=code, first=first))
     builder.adjust(1)
     return builder.as_markup()
+
+
+def first_language_prompt() -> str:
+    """The very first question, in every language: the user hasn't chosen one yet."""
+    return "\n".join(t("language_pick", lang) for lang in SUPPORTED_LANGUAGES)

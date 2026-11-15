@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.models import User
 from handlers.onboarding import send_or_edit
+from keyboards.menu import MenuButton
 from keyboards.food import (
     FoodCB,
     back_keyboard,
@@ -162,13 +163,14 @@ async def _logged_view(session: AsyncSession, user: User, entry) -> tuple[str, o
 # ---------- Commands ----------
 
 @router.message(Command("food"))
-async def cmd_food(message: Message, command: CommandObject, session: AsyncSession,
-                   state: FSMContext) -> None:
+@router.message(MenuButton("menu_food"))
+async def cmd_food(message: Message, session: AsyncSession, state: FSMContext,
+                   command: CommandObject | None = None) -> None:
     user = await _user(message, session)
     if user is None:
         return
     await state.clear()
-    if command.args:  # "/food 650 40" or "/food chicken wrap 650 40"
+    if command is not None and command.args:  # "/food 650 40" or "/food chicken wrap 650 40"
         await _save_manual(message, session, user, command.args, state)
         return
     text, keyboard = await food_view(session, user)

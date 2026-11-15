@@ -72,24 +72,28 @@ docs/  ARCHITECTURE.md API.md LOCAL_HTTPS.md
 
 `users.language` (`en`/`ru`/`uz`, or empty = never chosen). The bot's `/language`
 and the Mini App's `PATCH /api/me/language` change the same field. Until a user
-chooses, both follow the Telegram app language. Existing users start empty, so
-the bot asks them once (Stage 1).
+chooses, both follow the Telegram app language. `/start` asks for it once
+(the question is shown in all three languages). Users who set up before the
+picker existed are asked after their next message, once per bot run until they choose.
 
 ## Navigation map
 
 ```
-BOT (chat)
-/start ─ no language saved? ─► 🇬🇧 / 🇷🇺 / 🇺🇿 picker ─► welcome + health disclaimer
-   │                                                   + reply keyboard + [Open Gym24]
-   └─ language saved ─► welcome back + reply keyboard
+BOT (chat)                                    ✅ = built (Stage 1)
+/start ─ no language saved? ─► 🇬🇧 / 🇷🇺 / 🇺🇿 picker ─► health disclaimer ─► chat setup
+   │                                                   ─► reply keyboard + [Open Gym24]
+   └─ language saved ─► welcome back + reply keyboard + [Open Gym24]
 
-Reply keyboard (main)                         Settings submenu
-🏋️ Workout  | 📅 Plan       ─┐                🔔 Reminders | 🌐 Language
-📚 Exercises | 📊 Progress   ├─► short message 🗑 Delete my data | ℹ️ About
-🥗 Nutrition | 👤 Profile   ─┘   + inline       ⬅️ Back to menu
-⚙️ Settings  | 🌐 Language       [Open Gym24]
-                                 (opens the right tab)
-Chat menu button "Gym24" ─► Mini App (Home)
+Reply keyboard (main) ✅                      Settings submenu ✅
+🏋️ Workout  | 📅 Plan                         🔔 Reminders     | 🌐 Language
+📚 Exercises | 📊 Progress                    ✏️ Edit profile  | ℹ️ About (+ disclaimer)
+🥗 Nutrition | 👤 Profile                     🗑 Delete my data | ⬅️ Back to menu
+⚙️ Settings  | 🌐 Language
+  Each button runs the matching chat feature (same as its /command). Once a Mini App
+  tab exists, the button will show a short summary + inline [Open Gym24] for that tab.
+  Labels match in every language, and a tap leaves any half-finished typed form.
+[Open Gym24] inline button ✅ (only when MINIAPP_URL is an https:// address)
+Chat menu button "Gym24" ✅ ─► Mini App (Home)
 
 MINI APP
 Profile incomplete ─► Onboarding (1 question per screen, n of N)

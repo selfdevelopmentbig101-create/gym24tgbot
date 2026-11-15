@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.models import Exercise, SetLog, User, WorkoutSession, utcnow
 from handlers.onboarding import send_or_edit
+from keyboards.menu import MenuButton
 from keyboards.progress import (
     ProgCB,
     back_to_progress,
@@ -124,6 +125,7 @@ async def _show_progress(event, session: AsyncSession, user: User) -> None:
 
 
 @router.message(Command("progress"))
+@router.message(MenuButton("menu_progress"))
 async def cmd_progress(message: Message, session: AsyncSession, state: FSMContext) -> None:
     user = await _user(message, session)
     if user:
