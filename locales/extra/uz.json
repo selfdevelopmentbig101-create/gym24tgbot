@@ -1,0 +1,7 @@
+{
+ "start_setup_in_app": "👋 <b>Gym24 ga xush kelibsiz!</b>\n\nKeling, profilingizni sozlaymiz: ilovada 11 ta qisqa savol, har biri alohida ekranda. Bu taxminan bir daqiqa oladi va shundan so‘ng mashg‘ulot rejangiz hamda kunlik kaloriya va oqsil me’yoringiz tayyor bo‘ladi.\n\n<i>Gym24 fitnes bo‘yicha umumiy tavsiyalar beradi, bu tibbiy maslahat emas. Yangi mashg‘ulot yoki ovqatlanish rejasini boshlashdan oldin mutaxassis bilan maslahatlashing.</i>",
+ "btn_setup_in_app": "📱 Profilni sozlash",
+ "app_open_now": "📱 <b>Gym24</b>\nIlovani ochish uchun tugmani bosing: rejangiz, mashg‘ulotlar va natijalar.",
+ "app_not_ready": "📱 Gym24 ilovasi hali sozlanmagan (administrator MINIAPP_URL ga https manzilini yozishi kerak). Hozircha menyu va /workout dan foydalanishingiz mumkin.",
+ "cmd_app": "Gym24 ilovasini ochish"
+}

@@ -1,4 +1,10 @@
-"""/start, /help, /about, /cancel, /language, the health disclaimer and the main menu."""
+"""/start, /help, /about, /cancel, /language, the health disclaimer and the main menu.
+
+New users set up their profile in the Mini App (one question per screen, with the
+health disclaimer there). /start only shows the button that opens it. The old
+chat questionnaire is used only when the Mini App isn't configured (MINIAPP_URL
+is not an https:// address), so the bot keeps working without a tunnel.
+"""
 import logging
 
 from aiogram import Bot, F, Router
@@ -12,8 +18,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from config import config
 from database.models import User
 from handlers.onboarding import ask_step, send_or_edit, start_onboarding, step_from_state
-from keyboards.menu import (MenuButton, main_menu_keyboard, send_main_menu,
-                            settings_menu_keyboard)
+from keyboards.menu import (MenuButton, main_menu_keyboard, miniapp_ready, open_app_button,
+                            send_main_menu, settings_menu_keyboard)
 from keyboards.profile import (LangCB, MenuCB, disclaimer_keyboard, first_language_prompt,
                                language_keyboard)
 from services import users
@@ -24,6 +30,14 @@ logger = logging.getLogger(__name__)
 router = Router(name="common")
 
 
+async def send_app_setup(message: Message, state: FSMContext) -> None:
+    """Welcome (with a short health note) and the button that opens onboarding in the Mini App."""
+    await state.clear()  # drop a half-finished chat questionnaire, if any
+    button = open_app_button("", "btn_setup_in_app")
+    await message.answer(t("start_setup_in_app"),
+                         reply_markup=InlineKeyboardMarkup(inline_keyboard=[[button]]))
+
+
 async def continue_start(message: Message, state: FSMContext, user: User) -> None:
     """Everything /start does once the language is known."""
     if user.profile is not None:
@@ -31,6 +45,12 @@ async def continue_start(message: Message, state: FSMContext, user: User) -> Non
         await send_main_menu(message, t("start_welcome_back"))
         return
 
+    if miniapp_ready():
+        # Onboarding happens in the Mini App; the disclaimer is shown there too.
+        await send_app_setup(message, state)
+        return
+
+    # ---- Fallback without the Mini App: the chat questionnaire ----
     if user.disclaimer_accepted_at is None:
         await message.answer(t("disclaimer"), reply_markup=disclaimer_keyboard())
         return
@@ -68,6 +88,9 @@ async def on_accept_disclaimer(callback: CallbackQuery, state: FSMContext,
         await users.accept_disclaimer(session, user)
     if user.profile is not None:
         await send_main_menu(callback.message, t("start_welcome_back"))
+        return
+    if miniapp_ready():
+        await send_app_setup(callback.message, state)
         return
 
     await callback.message.answer(t("onboarding_intro"))
@@ -143,14 +166,14 @@ async def on_language(callback: CallbackQuery, callback_data: LangCB, bot: Bot,
     except TelegramBadRequest:
         logger.warning("Could not update the command menu language")
 
-    if user.disclaimer_accepted_at is None:
-        # Still on the first screen: show the disclaimer (again) in the new language.
+    if user.disclaimer_accepted_at is None and not miniapp_ready():
+        # Chat setup only: show the disclaimer (again) in the new language.
         await send_or_edit(callback, t("disclaimer"), disclaimer_keyboard())
         return
 
     await send_or_edit(callback, t("language_changed"))
-    if callback_data.first:
+    if callback_data.first or (user.profile is None and miniapp_ready()):
         await continue_start(callback.message, state, user)
-    elif user.profile is not None:
+    else:
         # Re-send the menu so its labels are in the new language.
         await callback.message.answer(t("menu_main"), reply_markup=main_menu_keyboard())

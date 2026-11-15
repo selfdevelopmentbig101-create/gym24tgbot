@@ -1,5 +1,7 @@
 """
 All user-facing texts live in language files: locales/en.json, ru.json, uz.json.
+Texts added later can go in locales/extra/<lang>.json (same keys in every
+language); they are merged over the main files, so t("key") finds them too.
 Texts use Telegram HTML formatting (<b>bold</b>, <i>italic</i>).
 
 The language for the current update is stored in a context variable, set by
@@ -13,16 +15,18 @@ from datetime import date
 from pathlib import Path
 
 LOCALES_DIR = Path(__file__).resolve().parent.parent / "locales"
+EXTRA_DIR = LOCALES_DIR / "extra"
 SUPPORTED_LANGUAGES = ("en", "ru", "uz")
 LANGUAGE_NAMES = {"en": "🇬🇧 English", "ru": "🇷🇺 Русский", "uz": "🇺🇿 O‘zbekcha"}
 DEFAULT_LANGUAGE = "en"
 
 
 def _load(lang: str) -> dict[str, str]:
-    path = LOCALES_DIR / f"{lang}.json"
-    if not path.exists():
-        return {}
-    return json.loads(path.read_text(encoding="utf-8"))
+    texts: dict[str, str] = {}
+    for path in (LOCALES_DIR / f"{lang}.json", EXTRA_DIR / f"{lang}.json"):
+        if path.exists():
+            texts.update(json.loads(path.read_text(encoding="utf-8")))
+    return texts
 
 
 LANGUAGES: dict[str, dict[str, str]] = {lang: _load(lang) for lang in SUPPORTED_LANGUAGES}

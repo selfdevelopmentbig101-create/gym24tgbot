@@ -1,0 +1,7 @@
+{
+ "start_setup_in_app": "👋 <b>Welcome to Gym24!</b>\n\nLet's set up your profile: 11 quick questions in the app, one per screen. It takes about a minute, and your workout plan and daily calorie and protein targets are ready right after.\n\n<i>Gym24 gives general fitness guidance, not medical advice. Talk to a professional before starting a new training or nutrition plan.</i>",
+ "btn_setup_in_app": "📱 Set up my profile",
+ "app_open_now": "📱 <b>Gym24</b>\nTap the button to open the app: your plan, workouts and progress.",
+ "app_not_ready": "📱 The Gym24 app isn't set up yet (the admin needs to put an https address in MINIAPP_URL). You can still use the menu and /workout.",
+ "cmd_app": "Open the Gym24 app"
+}
