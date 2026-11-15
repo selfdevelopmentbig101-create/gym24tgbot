@@ -9,7 +9,7 @@ import { Calendar } from "./PlanIcons";
 const TABS: { route: Route; key: TextKey; icon: ReactNode; match: Route["name"][] }[] = [
   { route: { name: "home" }, key: "tab_home", icon: <Home />, match: ["home"] },
   { route: { name: "plan" }, key: "tab_plan", icon: <Calendar />, match: ["plan", "planEdit", "programs", "programNew"] },
-  { route: { name: "library" }, key: "tab_train", icon: <Dumbbell />, match: ["library", "exercise"] },
+  { route: { name: "workout" }, key: "tab_train", icon: <Dumbbell />, match: ["workout", "workoutLive", "library", "exercise"] },
 ];
 
 export function TabBar({ current, t }: { current: Route; t: (key: TextKey) => string }) {

@@ -6,7 +6,9 @@
  *     /plan                 Plan: calendar, current program, details, weekly volume
  *     /plan/edit[/{day}]    split editor with the energy bar
  *     /plan/programs[/new]  all programs, create a program
- *     /train                Train: exercise library (the workout logger joins it in Stage 5)
+ *     /workout              Train: workout-day screen (statuses, last time's numbers, Start)
+ *     /workout/live         live logger (rest timer, supersets, notes, PRs, finish summary)
+ *     /train                exercise library
  *     /exercise/{id}        exercise detail
  * Unbuilt tabs (Stats, Profile) stay hidden.
  */
@@ -21,12 +23,14 @@ import { translate, type TextKey } from "./i18n";
 import { TabBar } from "./components/TabBar";
 import { ExerciseDetail } from "./screens/ExerciseDetail";
 import { Library } from "./screens/Library";
+import { Logger } from "./screens/Logger";
 import { Onboarding } from "./screens/Onboarding";
 import { Plan } from "./screens/Plan";
 import { PlanReady } from "./screens/PlanReady";
 import { ProgramNew } from "./screens/ProgramNew";
 import { Programs } from "./screens/Programs";
 import { SplitEditor } from "./screens/SplitEditor";
+import { TrainDay } from "./screens/TrainDay";
 
 const LANGUAGES: { code: LanguageCode; label: string }[] = [
   { code: "en", label: "English" },
@@ -120,6 +124,10 @@ export function App() {
       screen = <Programs t={t} />;
     } else if (route.name === "programNew") {
       screen = <ProgramNew t={t} />;
+    } else if (route.name === "workout") {
+      screen = <TrainDay t={t} />;
+    } else if (route.name === "workoutLive") {
+      screen = <Logger t={t} />;
     } else {
       const picker = (
         <section className="language-row">

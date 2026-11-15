@@ -1,9 +1,13 @@
 """
-Workout sessions and set logging (no Telegram code).
+Workout sessions and set logging (no Telegram code). Shared by the bot and the Mini App.
 
 Flow: start() copies a plan day into a session -> log_set() for each set ->
-finish() returns a summary. The "draft" (weight/reps on the Log button) is
+finish() returns a summary. The "draft" (weight/reps on the bot's Log button) is
 pre-filled from today's last set, or from the overload suggestion.
+
+Stage 5 (Mini App logger) adds: warm-up sets (never count for PRs, progression,
+volume or "sets done"), optional RPE, editing/deleting any set, and per-exercise
+notes and superset groups (stored in the session's items).
 """
 import logging
 from dataclasses import dataclass, field
@@ -23,6 +27,8 @@ logger = logging.getLogger(__name__)
 MAX_WEIGHT_KG = 500.0
 MAX_REPS = 100
 MAX_SECONDS = 600
+MAX_NOTE = 200
+SUPERSET_GROUPS = ("A", "B", "C", "D")
 STALE_AFTER = timedelta(hours=12)  # an unfinished workout older than this is closed
 
 
@@ -78,8 +84,9 @@ async def get_session(session: AsyncSession, user: User, session_id: int) -> Wor
     return ws if ws is not None and ws.user_id == user.id else None
 
 
-def sets_for(ws: WorkoutSession, exercise_id: str) -> list[SetLog]:
-    return [s for s in ws.sets if s.exercise_id == exercise_id]
+def sets_for(ws: WorkoutSession, exercise_id: str, warmup: bool = False) -> list[SetLog]:
+    """Today's working sets for an exercise (warmup=True: its warm-up sets instead)."""
+    return [s for s in ws.sets if s.exercise_id == exercise_id and bool(s.warmup) == warmup]
 
 
 def item_done(ws: WorkoutSession, index: int) -> bool:
@@ -93,10 +100,11 @@ def all_done(ws: WorkoutSession) -> bool:
 
 async def history(session: AsyncSession, user: User, exercise_id: str,
                   exclude_session_id: int | None = None, limit: int = 2) -> list[list[SetResult]]:
-    """Sets from the most recent workouts with this exercise, newest first."""
+    """Working sets from the most recent workouts with this exercise, newest first."""
     query = (
         select(SetLog.session_id)
-        .where(SetLog.user_id == user.id, SetLog.exercise_id == exercise_id)
+        .where(SetLog.user_id == user.id, SetLog.exercise_id == exercise_id,
+               SetLog.warmup.is_(False))
         .group_by(SetLog.session_id)
         .order_by(func.max(SetLog.id).desc())
         .limit(limit)
@@ -107,7 +115,8 @@ async def history(session: AsyncSession, user: User, exercise_id: str,
     result = []
     for sid in session_ids:
         rows = await session.scalars(
-            select(SetLog).where(SetLog.session_id == sid, SetLog.exercise_id == exercise_id)
+            select(SetLog).where(SetLog.session_id == sid, SetLog.exercise_id == exercise_id,
+                                 SetLog.warmup.is_(False))
             .order_by(SetLog.set_number)
         )
         result.append([SetResult(r.weight_kg, r.reps) for r in rows])
@@ -163,7 +172,7 @@ async def start(session: AsyncSession, user: User, plan: WorkoutPlan, day_index:
          "sets": adjust.deload_sets(e.sets) if deload else e.sets,
          "rep_min": e.rep_min, "rep_max": e.rep_max, "timed": e.timed,
          "rest_seconds": e.rest_seconds}
-        for e in day.exercises
+        for e in sorted(day.exercises, key=lambda e: e.position)
     ]
     ws = WorkoutSession(user_id=user.id, day_index=day_index, name_key=day.name_key,
                         suffix=day.suffix, items=items, sets=[])
@@ -208,31 +217,108 @@ async def adjust_draft(session: AsyncSession, ws: WorkoutSession,
     await session.commit()
 
 
-async def log_set(session: AsyncSession, user: User, ws: WorkoutSession,
-                  weight: float | None = None, reps: int | None = None) -> SetLog:
-    """Log a set for the current exercise (defaults to the draft values)."""
-    item = ws.items[ws.current_index]
-    weight = ws.draft_weight if weight is None else weight
-    reps = ws.draft_reps if reps is None else reps
+def _check_values(item: dict, weight: float, reps: int, rpe: float | None) -> None:
     if not 0 <= weight <= MAX_WEIGHT_KG:
         raise LogError("err_set_weight")
     if not 1 <= reps <= (MAX_SECONDS if item["timed"] else MAX_REPS):
         raise LogError("err_set_reps")
+    if rpe is not None and not 1 <= rpe <= 10:
+        raise LogError("err_set_rpe")
 
-    entry = SetLog(user_id=user.id, exercise_id=item["exercise_id"],
-                   set_number=len(sets_for(ws, item["exercise_id"])) + 1,
-                   weight_kg=round(float(weight), 2), reps=int(reps))
-    # PR = beats your previous best estimated 1RM. The very first time isn't a PR
-    # (otherwise every exercise would "PR" in the first workout).
-    previous_best = await records.best_e1rm(session, user, item["exercise_id"])
-    estimate = None if item["timed"] else records.e1rm(entry.weight_kg, entry.reps)
+
+async def _mark_pr(session: AsyncSession, user: User, entry: SetLog, timed: bool) -> None:
+    """PR = beats your previous best estimated 1RM. Warm-ups and first-ever sets never count."""
+    previous_best = await records.best_e1rm(session, user, entry.exercise_id,
+                                            exclude_set_id=entry.id)
+    estimate = None if timed or entry.warmup else records.e1rm(entry.weight_kg, entry.reps)
     entry.pr = bool(previous_best and estimate and estimate > previous_best + 0.01)
     entry.previous_best = previous_best  # not stored; used for the "new PR" message
     entry.estimate = estimate
+
+
+async def log_set(session: AsyncSession, user: User, ws: WorkoutSession,
+                  weight: float | None = None, reps: int | None = None, *,
+                  index: int | None = None, rpe: float | None = None,
+                  warmup: bool = False) -> SetLog:
+    """
+    Log a set (defaults: the current exercise and the draft values).
+    The Mini App passes the exercise `index`, plus optional RPE and the warm-up flag.
+    """
+    if index is not None:
+        if not 0 <= index < len(ws.items):
+            raise LogError("err_bad_exercise")
+        ws.current_index = index
+    item = ws.items[ws.current_index]
+    weight = ws.draft_weight if weight is None else weight
+    reps = ws.draft_reps if reps is None else reps
+    _check_values(item, weight, reps, rpe)
+
+    entry = SetLog(user_id=user.id, exercise_id=item["exercise_id"],
+                   set_number=len(sets_for(ws, item["exercise_id"], warmup)) + 1,
+                   weight_kg=round(float(weight), 2), reps=int(reps),
+                   rpe=None if rpe is None else round(float(rpe) * 2) / 2, warmup=warmup)
+    await _mark_pr(session, user, entry, item["timed"])
     ws.sets.append(entry)
-    ws.draft_weight, ws.draft_reps = entry.weight_kg, entry.reps
+    if not warmup:
+        ws.draft_weight, ws.draft_reps = entry.weight_kg, entry.reps
     await session.commit()
     return entry
+
+
+def _find_set(ws: WorkoutSession, set_id: int) -> SetLog:
+    for entry in ws.sets:
+        if entry.id == set_id:
+            return entry
+    raise LogError("err_no_set")
+
+
+def _item_of(ws: WorkoutSession, exercise_id: str) -> dict:
+    return next((i for i in ws.items if i["exercise_id"] == exercise_id),
+                {"timed": False, "exercise_id": exercise_id})
+
+
+async def edit_set(session: AsyncSession, user: User, ws: WorkoutSession, set_id: int,
+                   changes: dict) -> SetLog:
+    """Fix a logged set (weight, reps, RPE). The PR mark is checked again."""
+    entry = _find_set(ws, set_id)
+    item = _item_of(ws, entry.exercise_id)
+    weight = changes["weight_kg"] if changes.get("weight_kg") is not None else entry.weight_kg
+    reps = changes["reps"] if changes.get("reps") is not None else entry.reps
+    rpe = changes["rpe"] if "rpe" in changes else entry.rpe
+    _check_values(item, weight, reps, rpe)
+    entry.weight_kg, entry.reps = round(float(weight), 2), int(reps)
+    entry.rpe = None if rpe is None else round(float(rpe) * 2) / 2
+    await _mark_pr(session, user, entry, item.get("timed", False))
+    await session.commit()
+    return entry
+
+
+async def delete_set(session: AsyncSession, ws: WorkoutSession, set_id: int) -> SetLog:
+    """Remove one set; the other sets of that exercise are renumbered."""
+    entry = _find_set(ws, set_id)
+    ws.sets.remove(entry)
+    for kind in (False, True):
+        for number, s in enumerate(sets_for(ws, entry.exercise_id, kind), start=1):
+            s.set_number = number
+    await session.commit()
+    return entry
+
+
+async def update_item(session: AsyncSession, ws: WorkoutSession, index: int, changes: dict) -> None:
+    """A note for one exercise, or its superset group ("A".."D", None = no superset)."""
+    if not 0 <= index < len(ws.items):
+        raise LogError("err_bad_exercise")
+    items = [dict(i) for i in ws.items]
+    if "note" in changes:
+        note = (changes["note"] or "").strip()[:MAX_NOTE]
+        items[index]["note"] = note or None
+    if "group" in changes:
+        group = changes["group"]
+        if group is not None and group not in SUPERSET_GROUPS:
+            raise LogError("err_bad_group")
+        items[index]["group"] = group
+    ws.items = items  # reassign so SQLAlchemy notices the JSON change
+    await session.commit()
 
 
 async def same_as_last_time(session: AsyncSession, user: User,
@@ -264,7 +350,7 @@ async def undo_last(session: AsyncSession, ws: WorkoutSession) -> SetLog | None:
 async def swap_current(session: AsyncSession, user: User, ws: WorkoutSession) -> Exercise | None:
     """Replace the current exercise (e.g. machine taken). Only if no sets logged for it yet."""
     item = ws.items[ws.current_index]
-    if sets_for(ws, item["exercise_id"]):
+    if sets_for(ws, item["exercise_id"]) or sets_for(ws, item["exercise_id"], True):
         raise LogError("swap_after_sets")
     catalog = await load_catalog(session)
     current = catalog.get(item["exercise_id"]) or await session.get(Exercise, item["exercise_id"])
@@ -291,11 +377,12 @@ async def finish(session: AsyncSession, user: User, ws: WorkoutSession) -> Worko
     ws.finished_at = utcnow()
     await session.commit()
 
+    working = [s for s in ws.sets if not s.warmup]
     summary = WorkoutSummary(
         name_key=ws.name_key, suffix=ws.suffix,
         minutes=max(1, round((_aware(ws.finished_at) - _aware(ws.started_at)).total_seconds() / 60)),
-        total_sets=len(ws.sets),
-        volume_kg=round(sum(s.weight_kg * s.reps for s in ws.sets
+        total_sets=len(working),
+        volume_kg=round(sum(s.weight_kg * s.reps for s in working
                             if not _is_timed(ws, s.exercise_id)), 1),
     )
     deload = await in_deload(session, user)

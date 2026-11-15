@@ -21,6 +21,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    false,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -231,7 +232,8 @@ class WorkoutSession(Base):
     day_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
     name_key: Mapped[str] = mapped_column(String(20), default="")
     suffix: Mapped[str] = mapped_column(String(4), default="")
-    # [{"exercise_id", "sets", "rep_min", "rep_max", "timed", "rest_seconds"}, ...]
+    # [{"exercise_id", "sets", "rep_min", "rep_max", "timed", "rest_seconds",
+    #   optional "note" (short text) and "group" (superset letter "A", "B"...)}, ...]
     items: Mapped[list[dict]] = mapped_column(JSON, default=list)
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -262,11 +264,15 @@ class SetLog(Base):
     # Duplicated from the session so history queries stay simple and fast.
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     exercise_id: Mapped[str] = mapped_column(ForeignKey("exercises.id"), index=True)
-    set_number: Mapped[int] = mapped_column(Integer)  # 1-based, per exercise per workout
+    set_number: Mapped[int] = mapped_column(Integer)  # 1-based, per exercise per workout (and per kind)
     weight_kg: Mapped[float] = mapped_column(Float, default=0)  # 0 = bodyweight only
     reps: Mapped[int] = mapped_column(Integer)
     # True if this set beat the previous best estimated 1RM for the exercise.
     pr: Mapped[bool] = mapped_column(Boolean, default=False)
+    # How hard it felt, 1-10 (optional, Mini App logger).
+    rpe: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Warm-up sets never count for PRs, progression, volume or "sets done".
+    warmup: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     session: Mapped[WorkoutSession] = relationship(back_populates="sets")

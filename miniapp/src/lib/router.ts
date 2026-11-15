@@ -7,7 +7,9 @@
  *   /plan/edit[/{dayId}]   split editor (optionally opened on one day)
  *   /plan/programs         all programs (Current / Available / Created)
  *   /plan/programs/new     create a program
- *   /train                 exercise library
+ *   /workout               Train tab: workout-day screen (Stage 5)
+ *   /workout/live          live logger for the workout in progress
+ *   /train                 exercise library (the bot's 📚 Exercises button links here)
  *   /exercise/{id}         exercise detail
  */
 import { useEffect, useState } from "react";
@@ -18,12 +20,15 @@ export type Route =
   | { name: "planEdit"; day?: number }
   | { name: "programs" }
   | { name: "programNew" }
+  | { name: "workout" }
+  | { name: "workoutLive" }
   | { name: "library" }
   | { name: "exercise"; id: string };
 
 export function parse(path: string): Route {
   const parts = path.replace(/\/+$/, "").split("/").filter(Boolean);
   if (parts[0] === "train" && parts.length === 1) return { name: "library" };
+  if (parts[0] === "workout") return parts[1] === "live" ? { name: "workoutLive" } : { name: "workout" };
   if (parts[0] === "exercise" && parts[1]) return { name: "exercise", id: decodeURIComponent(parts[1]) };
   if (parts[0] === "plan") {
     if (parts[1] === "edit") {
@@ -43,6 +48,8 @@ export function pathOf(route: Route): string {
     case "planEdit": return "/plan/edit" + (route.day ? "/" + route.day : "");
     case "programs": return "/plan/programs";
     case "programNew": return "/plan/programs/new";
+    case "workout": return "/workout";
+    case "workoutLive": return "/workout/live";
     case "library": return "/train";
     case "exercise": return "/exercise/" + encodeURIComponent(route.id);
   }

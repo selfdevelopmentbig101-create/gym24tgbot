@@ -3,7 +3,7 @@ Personal records and estimated one-rep max (1RM).
 
 Estimated 1RM uses the Epley formula: weight x (1 + reps / 30).
 It's only reliable for sets of 1-12 reps, so higher-rep sets are ignored.
-Bodyweight-only (0 kg) and timed sets have no 1RM.
+Bodyweight-only (0 kg), timed and warm-up sets have no 1RM.
 """
 from dataclasses import dataclass
 from datetime import datetime
@@ -32,15 +32,21 @@ class PersonalRecord:
     heaviest_kg: float
 
 
-async def _weighted_sets(session: AsyncSession, user: User, exercise_id: str | None = None):
-    query = select(SetLog).where(SetLog.user_id == user.id, SetLog.weight_kg > 0)
+async def _weighted_sets(session: AsyncSession, user: User, exercise_id: str | None = None,
+                         exclude_set_id: int | None = None):
+    """Weighted working sets (warm-ups never count)."""
+    query = select(SetLog).where(SetLog.user_id == user.id, SetLog.weight_kg > 0,
+                                 SetLog.warmup.is_(False))
     if exercise_id:
         query = query.where(SetLog.exercise_id == exercise_id)
+    if exclude_set_id is not None:
+        query = query.where(SetLog.id != exclude_set_id)
     return list(await session.scalars(query.order_by(SetLog.id)))
 
 
-async def best_e1rm(session: AsyncSession, user: User, exercise_id: str) -> float | None:
-    values = [v for s in await _weighted_sets(session, user, exercise_id)
+async def best_e1rm(session: AsyncSession, user: User, exercise_id: str,
+                    exclude_set_id: int | None = None) -> float | None:
+    values = [v for s in await _weighted_sets(session, user, exercise_id, exclude_set_id)
               if (v := e1rm(s.weight_kg, s.reps)) is not None]
     return max(values, default=None)
 
