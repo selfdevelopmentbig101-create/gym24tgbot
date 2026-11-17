@@ -17,11 +17,14 @@ import profileEn from "./profile.en.json";
 import profileRu from "./profile.ru.json";
 import homeEn from "./home.en.json";
 import homeRu from "./home.ru.json";
+import guidedEn from "./guided.en.json";
+import guidedRu from "./guided.ru.json";
+import guidedUz from "./guided.uz.json";
 import type { LanguageCode } from "../lib/api";
 
 type Dict = Record<string, string>;
-const EN = { ...en, ...planEn, ...trainEn, ...profileEn, ...homeEn };
-const DICTS: Record<LanguageCode, Dict> = { en: EN, ru: { ...ru, ...planRu, ...trainRu, ...profileRu, ...homeRu }, uz };
+const EN = { ...en, ...planEn, ...trainEn, ...profileEn, ...homeEn, ...guidedEn };
+const DICTS: Record<LanguageCode, Dict> = { en: EN, ru: { ...ru, ...planRu, ...trainRu, ...profileRu, ...homeRu, ...guidedRu }, uz: { ...uz, ...guidedUz } };
 
 export type TextKey = keyof typeof EN;
 

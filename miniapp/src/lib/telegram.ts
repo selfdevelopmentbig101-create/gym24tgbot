@@ -22,6 +22,7 @@ interface TelegramWebApp {
   setBackgroundColor(color: string): void;
   setBottomBarColor?(color: string): void;
   disableVerticalSwipes?(): void;
+  showConfirm?(message: string, callback: (confirmed: boolean) => void): void;
   BackButton: { show(): void; hide(): void; onClick(cb: () => void): void; offClick(cb: () => void): void };
   HapticFeedback: {
     impactOccurred(style: HapticImpact): void;
@@ -98,6 +99,25 @@ export function bindNativeBack(onBack: (() => void) | null): () => void {
     app.BackButton.offClick(onBack);
     app.BackButton.hide();
   };
+}
+
+/** Ask a yes/no question: Telegram's own popup when available, the browser's otherwise. */
+export function confirmDialog(message: string, onResult: (confirmed: boolean) => void): void {
+  const app = getWebApp();
+  if (app?.showConfirm && app.isVersionAtLeast("6.2")) {
+    try {
+      app.showConfirm(message, onResult);
+      return;
+    } catch {
+      /* fall back to the browser's dialog */
+    }
+  }
+  onResult(window.confirm(message));
+}
+
+/** Phone vibration where the browser allows it (mostly Android). Haptics cover the rest. */
+export function vibrate(pattern: number | number[]): void {
+  safe(() => navigator.vibrate?.(pattern));
 }
 
 /** Telegram's user id, ONLY for keying local drafts on this device. Never sent to the API. */

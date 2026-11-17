@@ -9,6 +9,7 @@
  *   /plan/programs/new     create a program
  *   /workout               Train tab: workout-day screen (Stage 5)
  *   /workout/live          live logger for the workout in progress
+ *   /workout/go            guided workout: countdown, exercise screen, rest, summary
  *   /targets               daily targets (calories, macros, goal date)
  *   /profile               Profile tab: character, level, achievements, settings (Stage 6)
  *   /profile/edit          edit profile
@@ -28,6 +29,7 @@ export type Route =
   | { name: "targets" }
   | { name: "profileEdit" }
   | { name: "workoutLive" }
+  | { name: "workoutGuided" }
   | { name: "library" }
   | { name: "exercise"; id: string };
 
@@ -36,7 +38,11 @@ export function parse(path: string): Route {
   if (parts[0] === "train" && parts.length === 1) return { name: "library" };
   if (parts[0] === "targets") return { name: "targets" };
   if (parts[0] === "profile") return parts[1] === "edit" ? { name: "profileEdit" } : { name: "profile" };
-  if (parts[0] === "workout") return parts[1] === "live" ? { name: "workoutLive" } : { name: "workout" };
+  if (parts[0] === "workout") {
+    if (parts[1] === "live") return { name: "workoutLive" };
+    if (parts[1] === "go") return { name: "workoutGuided" };
+    return { name: "workout" };
+  }
   if (parts[0] === "exercise" && parts[1]) return { name: "exercise", id: decodeURIComponent(parts[1]) };
   if (parts[0] === "plan") {
     if (parts[1] === "edit") {
@@ -61,6 +67,7 @@ export function pathOf(route: Route): string {
     case "targets": return "/targets";
     case "profileEdit": return "/profile/edit";
     case "workoutLive": return "/workout/live";
+    case "workoutGuided": return "/workout/go";
     case "library": return "/train";
     case "exercise": return "/exercise/" + encodeURIComponent(route.id);
   }

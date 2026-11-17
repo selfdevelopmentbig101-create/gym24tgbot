@@ -19,6 +19,7 @@ from services.progression import Suggestion
 logger = logging.getLogger(__name__)
 
 ImageFor = Callable[[str], "str | None"]   # exercise id -> thumbnail URL
+MediaFor = Callable[[str], "dict | None"]  # exercise id -> {"kind", "start", "peak", "still"} (guided screen)
 
 
 class TrainError(Exception):
@@ -71,7 +72,8 @@ def _block(exercise: Exercise, sets: int, timed: bool) -> energy.SetBlock:
 
 # ---------- workout-day screen ----------
 
-async def overview(session: AsyncSession, user: User, image_for: ImageFor) -> dict:
+async def overview(session: AsyncSession, user: User, image_for: ImageFor,
+                   media_for: MediaFor | None = None) -> dict:
     """The active workout (if any), and every day of the current program with last time's numbers."""
     if user.profile is None:
         raise TrainError("profile_required")
@@ -98,7 +100,7 @@ async def overview(session: AsyncSession, user: User, image_for: ImageFor) -> di
             "energy": energy.session_load(blocks).as_dict(), "exercises": exercises,
         })
     return {
-        "active": await workout_view(session, user, active, image_for) if active else None,
+        "active": await workout_view(session, user, active, image_for, media_for) if active else None,
         "next_index": await workouts.next_day_index(session, user, plan),
         "days": days,
     }
@@ -106,7 +108,8 @@ async def overview(session: AsyncSession, user: User, image_for: ImageFor) -> di
 
 # ---------- live logger ----------
 
-async def workout_view(session: AsyncSession, user: User, ws: WorkoutSession, image_for: ImageFor) -> dict:
+async def workout_view(session: AsyncSession, user: User, ws: WorkoutSession, image_for: ImageFor,
+                       media_for: MediaFor | None = None) -> dict:
     """Everything the live logger shows for one workout."""
     catalog = await load_catalog(session)
     plan = await plans.get_plan(session, user)
@@ -136,6 +139,7 @@ async def workout_view(session: AsyncSession, user: User, ws: WorkoutSession, im
         items.append({
             "index": index, "exercise_id": ex.id, "name": ex.name, "muscle_group": ex.muscle_group,
             "equipment": ex.equipment, "image": image_for(ex.id),
+            "media": media_for(ex.id) if media_for else None,
             "sets": item["sets"], "rep_min": item["rep_min"], "rep_max": item["rep_max"],
             "timed": item["timed"], "rest_seconds": item["rest_seconds"],
             "note": item.get("note"), "group": item.get("group"), "label": labels[index],

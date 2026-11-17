@@ -26,6 +26,14 @@ export interface Hint {
 
 export interface PastSet { weight_kg: number; reps: number }
 
+/** Exercise pictures for the guided screen (start + peak frames loop; kind is null without images). */
+export interface ItemMedia {
+  kind: "animation" | "photo" | null;
+  start: string | null;
+  peak: string | null;
+  still: string | null;
+}
+
 export interface WorkoutItem {
   index: number;
   exercise_id: string;
@@ -38,6 +46,7 @@ export interface WorkoutItem {
   rep_max: number;
   timed: boolean;
   rest_seconds: number;
+  media?: ItemMedia | null;
   note: string | null;
   group: string | null;     // superset group A-D
   label: string | null;     // A1, A2, B1...

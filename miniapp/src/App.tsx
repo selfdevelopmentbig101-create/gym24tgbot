@@ -9,6 +9,7 @@
  *     /plan/programs[/new]  all programs, create a program
  *     /workout              Train: workout-day screen (statuses, last time's numbers, Start)
  *     /workout/live         live logger (rest timer, supersets, notes, PRs, finish summary)
+ *     /workout/go           guided workout (countdown, exercise screen, rest timer, summary)
  *     /train                exercise library
  *     /profile              Profile: character, level, XP, achievements, settings (Stage 6)
  *     /profile/edit         edit profile answers
@@ -38,6 +39,7 @@ import { ProgramNew } from "./screens/ProgramNew";
 import { Programs } from "./screens/Programs";
 import { SplitEditor } from "./screens/SplitEditor";
 import { TrainDay } from "./screens/TrainDay";
+import { Workout } from "./screens/Workout";
 
 const LANGUAGES: { code: LanguageCode; label: string }[] = [
   { code: "en", label: "English" },
@@ -135,6 +137,8 @@ export function App() {
       screen = <TrainDay t={t} />;
     } else if (route.name === "workoutLive") {
       screen = <Logger t={t} />;
+    } else if (route.name === "workoutGuided") {
+      screen = <Workout t={t} attribution={state.config.attribution} />;
     } else if (route.name === "profile") {
       screen = <Profile t={t} me={state.me} config={state.config} saving={saving}
                         onLanguage={(code) => void chooseLanguage(code)}
@@ -177,7 +181,7 @@ export function App() {
     return (
       <div className="with-tabs">
         {screen}
-        <TabBar current={route} t={t} />
+        {route.name !== "workoutGuided" && <TabBar current={route} t={t} />}
       </div>
     );
   }

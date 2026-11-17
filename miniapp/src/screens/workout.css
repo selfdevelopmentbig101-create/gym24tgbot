@@ -1,0 +1,378 @@
+/* Guided workout (screens/Workout.tsx, components/Countdown.tsx, components/WorkoutProgress.tsx).
+   Design tokens only (styles/tokens.css). Mobile first; the app palette is the same in Telegram's
+   light and dark themes, so contrast does not depend on the theme. */
+
+.gx {
+  position: fixed;
+  top: 0; right: 0; bottom: 0; left: 0;
+  z-index: 20;                       /* above the tab bar */
+  display: flex;
+  flex-direction: column;
+  padding-top: var(--safe-top);
+  background: var(--color-bg);
+  color: var(--color-text);
+  overflow: hidden;
+  animation: gx-fade var(--duration-base) var(--ease-out);
+}
+
+.gx-center { align-items: center; justify-content: center; padding: var(--screen-padding); }
+
+@keyframes gx-fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* ---------- progress header ---------- */
+
+.gx-progress {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--screen-padding) var(--space-2);
+}
+
+.gx-progress-top { display: flex; align-items: center; gap: var(--space-3); }
+
+.gx-back {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.gx-progress-count { flex: 1; min-width: 0; font-weight: var(--font-weight-bold); font-size: var(--font-size-body); }
+
+.gx-link {
+  flex: none;
+  border: 0;
+  background: transparent;
+  color: var(--color-mint);
+  font: inherit;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
+  padding: var(--space-2);
+}
+.gx-link:disabled { opacity: 0.5; }
+
+/* One segment per exercise. Scrolls sideways when there are many (10+). */
+.gx-segs {
+  position: relative;
+  display: flex;
+  gap: 4px;
+  padding: 3px 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.gx-segs::-webkit-scrollbar { display: none; }
+
+.gx-seg {
+  flex: 1 0 24px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  transition: background var(--duration-base) var(--ease-out), transform var(--duration-base) var(--ease-out);
+}
+.gx-seg-done { background: var(--color-mint); }
+.gx-seg-current { background: var(--gradient-accent); box-shadow: var(--frame-glow); transform: scaleY(1.5); }
+.gx-seg-todo { background: var(--color-surface); }
+
+.gx-neighbours {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 16px;
+  font-size: var(--font-size-caption);
+  color: var(--color-text-muted);
+}
+.gx-neighbours span { min-width: 0; max-width: 48%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gx-nb-next { margin-left: auto; text-align: right; }
+
+/* ---------- exercise: picture on top ---------- */
+
+.gx-media {
+  flex: none;
+  height: 34vh;
+  min-height: 150px;
+  max-height: 340px;
+  margin: 0 var(--screen-padding);
+}
+.gx-media .ex-image-large { width: 100%; height: 100%; aspect-ratio: auto; }
+.gx-media .ex-image-large.ex-image-empty { aspect-ratio: auto; height: 100%; }
+
+.gx-credit {
+  flex: none;
+  max-height: 28px;
+  margin: var(--space-1) var(--screen-padding) 0;
+  overflow: hidden;
+  font-size: 10px;
+  line-height: 1.3;
+  text-align: center;
+  color: var(--color-text-subtle);
+}
+
+/* ---------- exercise: controls below ---------- */
+
+.gx-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--screen-padding) calc(var(--safe-bottom) + var(--space-4));
+  overflow-y: auto;
+}
+
+.gx-head { display: flex; flex-direction: column; gap: 2px; }
+.gx-name { margin: 0; font-size: var(--font-size-h2); line-height: var(--line-height-tight); }
+.gx-muscle { margin: 0; font-size: var(--font-size-small); color: var(--color-mint); }
+
+.gx-setrow { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.gx-setpill {
+  padding: 4px var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--gradient-accent);
+  color: var(--color-text-on-accent);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-bold);
+}
+.gx-target { font-size: var(--font-size-small); color: var(--color-text-muted); }
+
+.gx-counter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.gx-round {
+  flex: none;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  font-size: 30px;
+  line-height: 1;
+  transition: transform var(--duration-fast) var(--ease-out), opacity var(--duration-fast) var(--ease-out);
+}
+.gx-round:active { transform: scale(0.9); }
+.gx-round:disabled { opacity: 0.35; }
+
+.gx-counter-value { display: flex; flex-direction: column; align-items: center; min-width: 0; text-align: center; }
+.gx-counter-value b { font-weight: var(--font-weight-bold); font-variant-numeric: tabular-nums; }
+.gx-counter-value span { font-size: var(--font-size-caption); color: var(--color-text-muted); }
+
+.gx-counter-big .gx-round { width: 72px; height: 72px; font-size: 36px; }
+.gx-counter-big .gx-counter-value b { font-size: 56px; line-height: 1.05; }
+.gx-counter-small { padding: var(--space-1) var(--space-2); }
+.gx-counter-small .gx-round { width: 48px; height: 48px; font-size: 26px; }
+.gx-counter-small .gx-counter-value b { font-size: var(--font-size-h2); }
+
+/* ---------- buttons ---------- */
+
+.gx-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: var(--button-height);
+  padding: 0 var(--space-6);
+  border: 0;
+  border-radius: var(--radius-pill);
+  font: inherit;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-bold);
+  transition: transform var(--duration-fast) var(--ease-out), opacity var(--duration-fast) var(--ease-out);
+}
+.gx-btn:active { transform: scale(0.97); }
+.gx-btn:disabled { opacity: 0.5; }
+.gx-btn-primary {
+  min-height: 64px;
+  background: var(--gradient-accent);
+  color: var(--color-text-on-accent);
+  font-size: var(--font-size-h2);
+  box-shadow: var(--shadow-button);
+}
+.gx-btn-secondary { background: var(--color-surface); color: var(--color-text); }
+.gx-early { align-self: center; }
+
+/* ---------- completed + rest ---------- */
+
+.gx-stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--screen-padding) calc(var(--safe-bottom) + var(--space-5));
+  text-align: center;
+  overflow-y: auto;
+  animation: gx-rise var(--duration-slow) var(--ease-out);
+}
+@keyframes gx-rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+.gx-done-title { margin: 0; font-size: var(--font-size-title); line-height: var(--line-height-tight); }
+.gx-done-name { margin: 0; font-weight: var(--font-weight-semibold); }
+.gx-done-stats { margin: 0; color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+.gx-label { margin: var(--space-2) 0 0; font-size: var(--font-size-small); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.gx-upnext { margin: 0; font-size: var(--font-size-small); color: var(--color-text-muted); }
+
+.gx-stage .gx-btn { max-width: 420px; }
+
+.gx-choices { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-2); }
+.gx-choice {
+  min-width: 76px;
+  min-height: var(--tap-target);
+  padding: 0 var(--space-4);
+  border: 1.5px solid transparent;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+.gx-choice:active { transform: scale(0.95); }
+.gx-choice-on {
+  background:
+    linear-gradient(var(--color-surface-raised), var(--color-surface-raised)) padding-box,
+    var(--gradient-accent) border-box;
+  color: var(--color-mint);
+}
+
+/* Success check: the circle and the tick draw themselves, then one soft pulse. */
+.gx-check { position: relative; width: 112px; height: 112px; margin-bottom: var(--space-2); }
+.gx-check svg { width: 100%; height: 100%; }
+.gx-check-ring {
+  fill: none;
+  stroke: var(--color-mint);
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-dasharray: 302;
+  stroke-dashoffset: 302;
+  animation: gx-draw 600ms var(--ease-out) forwards;
+}
+.gx-check-tick {
+  fill: none;
+  stroke: var(--color-mint);
+  stroke-width: 8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 70;
+  stroke-dashoffset: 70;
+  animation: gx-draw 400ms 450ms var(--ease-out) forwards;
+}
+.gx-check::after {
+  content: "";
+  position: absolute;
+  top: 0; right: 0; bottom: 0; left: 0;
+  border-radius: 50%;
+  border: 3px solid var(--color-mint);
+  opacity: 0;
+  animation: gx-pulse 900ms 700ms ease-out;
+}
+@keyframes gx-draw { to { stroke-dashoffset: 0; } }
+@keyframes gx-pulse { 0% { opacity: 0.7; transform: scale(1); } 100% { opacity: 0; transform: scale(1.5); } }
+
+/* Rest timer ring. */
+.gx-ring { position: relative; width: min(64vw, 260px); aspect-ratio: 1; margin: var(--space-2) 0; }
+.gx-ring svg { width: 100%; height: 100%; }
+.gx-ring circle { fill: none; stroke-width: 8; }
+.gx-ring-bg { stroke: var(--color-surface); }
+.gx-ring-fg { stroke: var(--color-mint); stroke-linecap: round; transition: stroke-dashoffset 0.3s linear; }
+.gx-time {
+  position: absolute;
+  top: 0; right: 0; bottom: 0; left: 0;
+  display: grid;
+  place-items: center;
+  font-size: 56px;
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- start countdown ---------- */
+
+.gx-countdown {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(60% 40% at 50% 55%, rgba(52, 240, 194, 0.16) 0%, transparent 70%);
+}
+
+.gx-count-num {
+  font-size: 168px;
+  font-weight: 800;
+  line-height: 1;
+  background: var(--gradient-accent);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: gx-pop 900ms var(--ease-out) both;
+}
+.gx-count-go { font-size: 96px; animation-duration: 700ms; }
+
+/* Scale up and fade in, hold, then fade out a little bigger. */
+@keyframes gx-pop {
+  0%   { opacity: 0; transform: scale(0.4); }
+  25%  { opacity: 1; transform: scale(1.08); }
+  40%  { opacity: 1; transform: scale(1); }
+  75%  { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.35); }
+}
+
+/* ---------- summary ---------- */
+
+.gx-summary {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-6) var(--screen-padding) calc(var(--safe-bottom) + var(--space-5));
+  text-align: center;
+  overflow-y: auto;
+}
+.gx-summary > .card { width: 100%; text-align: left; }
+.gx-summary > .gx-btn { max-width: 420px; margin-top: auto; }
+
+.gx-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); width: 100%; }
+.gx-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 84px;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+.gx-tile b { font-size: var(--font-size-title); font-variant-numeric: tabular-nums; }
+.gx-tile span { font-size: var(--font-size-caption); color: var(--color-text-muted); }
+
+/* Very short phones: tighten the picture and the big counter. */
+@media (max-height: 640px) {
+  .gx-media { height: 28vh; min-height: 120px; }
+  .gx-counter-big .gx-round { width: 60px; height: 60px; }
+  .gx-counter-big .gx-counter-value b { font-size: 44px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gx, .gx-stage { animation: none; }
+  .gx-count-num { animation: gx-fade 300ms linear both; }
+  .gx-check-ring, .gx-check-tick { animation: none; stroke-dashoffset: 0; }
+  .gx-check::after { animation: none; }
+  .gx-seg { transition: none; }
+}

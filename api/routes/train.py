@@ -42,14 +42,25 @@ def _images(request: Request):
     return lambda exercise_id: library.media(exercise_id, folder).still
 
 
+def _media(request: Request):
+    """Start/peak/still image URLs of an exercise, for the guided workout screen."""
+    folder = request.app.state.exercise_images
+
+    def build(exercise_id: str) -> dict:
+        found = library.media(exercise_id, folder)
+        return {"kind": found.kind, "start": found.start, "peak": found.peak, "still": found.still}
+
+    return build
+
+
 async def _view(request: Request, user: User, session: AsyncSession, ws) -> dict:
-    return await train.workout_view(session, user, ws, _images(request))
+    return await train.workout_view(session, user, ws, _images(request), _media(request))
 
 
 @router.get("/train")
 async def overview(request: Request, user: User = Depends(get_user),
                    session: AsyncSession = Depends(get_session)) -> dict:
-    return await _guard(train.overview(session, user, _images(request)))
+    return await _guard(train.overview(session, user, _images(request), _media(request)))
 
 
 @router.post("/workouts", status_code=201)

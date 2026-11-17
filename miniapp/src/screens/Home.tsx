@@ -10,6 +10,7 @@ import { startWorkout, trainErrorKey } from "../lib/trainApi";
 import { dayName } from "../lib/planText";
 import { navigate } from "../lib/router";
 import { bindNativeBack, haptic } from "../lib/telegram";
+import { markFreshStart } from "../lib/guidedSession";
 import type { TextKey } from "../i18n";
 import { CharacterCard } from "../components/CharacterCard";
 import { Check, ChevronRight, Dumbbell, Flame, Search } from "../components/Icons";
@@ -49,9 +50,10 @@ export function Home({ t, name, locale }: { t: T; name: string; locale: string }
     if (!view?.next_workout || busy) return;
     setBusy(true);
     try {
-      await startWorkout(view.next_workout.index);
+      const started = await startWorkout(view.next_workout.index);
+      markFreshStart(started.id);   // opens with the 3-2-1 countdown
       haptic.success();
-      navigate({ name: "workoutLive" });
+      navigate({ name: "workoutGuided" });
     } catch (e) {
       haptic.error();
       setError(trainErrorKey(e));
@@ -88,7 +90,7 @@ export function Home({ t, name, locale }: { t: T; name: string; locale: string }
           <Bar value={view.active.done_sets} target={view.active.planned_sets} />
           <p className="muted small">{t("home_progress", { done: view.active.done_sets, planned: view.active.planned_sets })}</p>
           <button type="button" className="button-primary"
-                  onClick={() => { haptic.tap(); navigate({ name: "workoutLive" }); }}>{t("home_continue")}</button>
+                  onClick={() => { haptic.tap(); navigate({ name: "workoutGuided" }); }}>{t("home_continue")}</button>
         </section>
       )}
 

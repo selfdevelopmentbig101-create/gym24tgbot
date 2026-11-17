@@ -10,6 +10,7 @@ import { dayName } from "../lib/planText";
 import { fmtSets, repRange } from "../lib/trainText";
 import { navigate } from "../lib/router";
 import { bindNativeBack, haptic } from "../lib/telegram";
+import { markFreshStart } from "../lib/guidedSession";
 import type { TextKey } from "../i18n";
 import { EnergyBar } from "../components/EnergyBar";
 import { ExerciseImage } from "../components/ExerciseImage";
@@ -43,9 +44,10 @@ export function TrainDay({ t }: { t: T }) {
     setBusy(true);
     setError(null);
     try {
-      await startWorkout(selected, force);
+      const started = await startWorkout(selected, force);
+      markFreshStart(started.id);   // opens with the 3-2-1 countdown
       haptic.success();
-      navigate({ name: "workoutLive" });
+      navigate({ name: "workoutGuided" });
     } catch (e) {
       haptic.error();
       setError(trainErrorKey(e));
@@ -82,7 +84,7 @@ export function TrainDay({ t }: { t: T }) {
           <h2 className="plan-program-name">{dayName(active, t)}</h2>
           <p className="muted small">{t("train_progress", { done: active.done_sets, planned: active.planned_sets })}</p>
           <button type="button" className="button-primary"
-                  onClick={() => { haptic.tap(); navigate({ name: "workoutLive" }); }}>{t("train_continue")}</button>
+                  onClick={() => { haptic.tap(); navigate({ name: "workoutGuided" }); }}>{t("train_continue")}</button>
         </section>
       )}
 
