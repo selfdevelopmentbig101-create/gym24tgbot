@@ -1,0 +1,1694 @@
+From 1afebd441cbb3d8062fd07e7d302d7552ee5ab0e Mon Sep 17 00:00:00 2001
+From: Gym24 bot <bot@gym24.local>
+Date: Wed, 18 Nov 2026 08:43:10 +0000
+Subject: [PATCH] Train: Splits + All exercises (by muscle / all), active
+ split, remove Exercise library
+
+---
+ api/routes/exercises.py                  |  23 +++
+ api/routes/train.py                      |  21 +++
+ database/models.py                       |   2 +
+ migrations/versions/0007_active_split.py |  26 +++
+ miniapp/public/muscles/README.md         |   4 +
+ miniapp/src/App.tsx                      |  27 +++-
+ miniapp/src/components/AzIndex.css       |  42 -----
+ miniapp/src/components/AzIndex.tsx       |  55 -------
+ miniapp/src/components/TabBar.tsx        |   2 +-
+ miniapp/src/i18n/train.en.json           |  28 +++-
+ miniapp/src/i18n/train.ru.json           |  28 +++-
+ miniapp/src/lib/flash.ts                 |  10 ++
+ miniapp/src/lib/router.ts                |  32 +++-
+ miniapp/src/lib/trainApi.ts              |  21 ++-
+ miniapp/src/screens/AllExercises.tsx     | 147 +++++++++++++++++
+ miniapp/src/screens/ExerciseDetail.tsx   |   2 +-
+ miniapp/src/screens/Home.tsx             |   4 +-
+ miniapp/src/screens/Library.tsx          | 192 -----------------------
+ miniapp/src/screens/MuscleExercises.tsx  |  43 +++++
+ miniapp/src/screens/SplitDetail.tsx      |  99 ++++++++++++
+ miniapp/src/screens/Splits.tsx           |  97 ++++++++++++
+ miniapp/src/screens/TrainDay.tsx         |  19 +--
+ miniapp/src/screens/TrainHome.tsx        |  77 +++++++++
+ miniapp/src/screens/train.css            | 140 +++++++++++++++++
+ services/train.py                        |  81 +++++++---
+ services/workouts.py                     |   8 +
+ tests/test_api_train.py                  |  32 ++++
+ 27 files changed, 921 insertions(+), 341 deletions(-)
+ create mode 100644 migrations/versions/0007_active_split.py
+ create mode 100644 miniapp/public/muscles/README.md
+ delete mode 100644 miniapp/src/components/AzIndex.css
+ delete mode 100644 miniapp/src/components/AzIndex.tsx
+ create mode 100644 miniapp/src/lib/flash.ts
+ create mode 100644 miniapp/src/screens/AllExercises.tsx
+ delete mode 100644 miniapp/src/screens/Library.tsx
+ create mode 100644 miniapp/src/screens/MuscleExercises.tsx
+ create mode 100644 miniapp/src/screens/SplitDetail.tsx
+ create mode 100644 miniapp/src/screens/Splits.tsx
+ create mode 100644 miniapp/src/screens/TrainHome.tsx
+
+diff --git a/api/routes/exercises.py b/api/routes/exercises.py
+index 6fce6b6..977fc9e 100644
+--- a/api/routes/exercises.py
++++ b/api/routes/exercises.py
+@@ -60,6 +60,29 @@ async def list_exercises(
+     )
+ 
+ 
++@router.get("/muscles")
++async def muscle_groups(user: User = Depends(get_user), session: AsyncSession = Depends(get_session)) -> dict:
++    """Muscle groups (primary muscle of at least one exercise), in catalog order, with counts.
++    `image` is the anatomy picture's file name in miniapp/public/muscles/."""
++    catalog = list((await load_catalog(session)).values())
++    counts: dict[str, int] = {}
++    for ex in catalog:
++        counts[ex.muscle_group] = counts.get(ex.muscle_group, 0) + 1
++    return {"items": [{"key": m, "count": n, "image": f"{m}.png"} for m, n in counts.items()]}
++
++
++@router.get("/muscles/{muscle}", response_model=ExerciseList)
++async def exercises_by_muscle(muscle: str, request: Request, user: User = Depends(get_user),
++                              session: AsyncSession = Depends(get_session)) -> ExerciseList:
++    """Exercises whose PRIMARY muscle is this one (A-Z)."""
++    catalog = list((await load_catalog(session)).values())
++    user_filter = _user_filter(user)
++    found = sorted((ex for ex in catalog if ex.muscle_group == muscle), key=lambda ex: ex.name.lower())
++    return ExerciseList(items=[_item(ex, request, user_filter) for ex in found], total=len(found),
++                        muscles=[muscle], equipment=sorted({ex.equipment for ex in found}),
++                        difficulties=[d for d in DIFFICULTIES if any(ex.difficulty == d for ex in found)])
++
++
+ # Declared before /{exercise_id}, so "media-report" isn't taken for an exercise id.
+ @router.get("/media-report", response_model=MediaReport)
+ async def media_report(request: Request, identity: TelegramIdentity = Depends(get_identity),
+diff --git a/api/routes/train.py b/api/routes/train.py
+index 1e1b503..fc7304d 100644
+--- a/api/routes/train.py
++++ b/api/routes/train.py
+@@ -2,6 +2,9 @@
+ Stage 5: the Train tab (workout-day screen and live logger).
+ 
+     GET    /api/train                                    active workout + every program day (last time's numbers)
++    GET    /api/splits                                   every split (program day), the active one flagged
++    GET    /api/splits/{id}                              one split: exercises, minutes, hard sets, muscles
++    POST   /api/splits/{id}/activate                     make it the active split (the next workout)
+     POST   /api/workouts                                 start a plan day (409 workout_active unless force)
+     GET    /api/workouts/{id}                            live state
+     POST   /api/workouts/{id}/sets                       log a set (kg, reps, optional RPE, warm-up)
+@@ -63,6 +66,24 @@ async def overview(request: Request, user: User = Depends(get_user),
+     return await _guard(train.overview(session, user, _images(request), _media(request)))
+ 
+ 
++@router.get("/splits")
++async def list_splits(request: Request, user: User = Depends(get_user),
++                      session: AsyncSession = Depends(get_session)) -> dict:
++    return await _guard(train.splits(session, user, _images(request)))
++
++
++@router.get("/splits/{split_id}")
++async def get_split(split_id: int, request: Request, user: User = Depends(get_user),
++                    session: AsyncSession = Depends(get_session)) -> dict:
++    return await _guard(train.split(session, user, split_id, _images(request)))
++
++
++@router.post("/splits/{split_id}/activate")
++async def activate_split(split_id: int, request: Request, user: User = Depends(get_user),
++                         session: AsyncSession = Depends(get_session)) -> dict:
++    return await _guard(train.choose_split(session, user, split_id, _images(request)))
++
++
+ @router.post("/workouts", status_code=201)
+ async def start(body: StartIn, request: Request, user: User = Depends(get_user),
+                 session: AsyncSession = Depends(get_session)) -> dict:
+diff --git a/database/models.py b/database/models.py
+index 91f01cf..b2dae0e 100644
+--- a/database/models.py
++++ b/database/models.py
+@@ -153,6 +153,8 @@ class WorkoutPlan(Base):
+         ForeignKey("users.id", ondelete="CASCADE"), unique=True, index=True
+     )
+     split: Mapped[str] = mapped_column(String(30))  # e.g. "full_body", "upper_lower"
++    # The split (plan day) chosen in Train > Splits; None = next day in rotation.
++    active_day_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
+     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+ 
+     days: Mapped[list["PlanDay"]] = relationship(
+diff --git a/migrations/versions/0007_active_split.py b/migrations/versions/0007_active_split.py
+new file mode 100644
+index 0000000..fcc03c6
+--- /dev/null
++++ b/migrations/versions/0007_active_split.py
+@@ -0,0 +1,26 @@
++"""workout_plans.active_day_index: the split (plan day) the user chose in Train
++
++NULL = no choice; the app uses the next day in rotation.
++
++Revision ID: 0007
++Revises: 0006
++"""
++from typing import Sequence, Union
++
++import sqlalchemy as sa
++from alembic import op
++
++revision: str = "0007"
++down_revision: Union[str, Sequence[str], None] = "0006"
++branch_labels: Union[str, Sequence[str], None] = None
++depends_on: Union[str, Sequence[str], None] = None
++
++
++def upgrade() -> None:
++    with op.batch_alter_table("workout_plans") as batch:
++        batch.add_column(sa.Column("active_day_index", sa.Integer(), nullable=True))
++
++
++def downgrade() -> None:
++    with op.batch_alter_table("workout_plans") as batch:
++        batch.drop_column("active_day_index")
+diff --git a/miniapp/public/muscles/README.md b/miniapp/public/muscles/README.md
+new file mode 100644
+index 0000000..c93c9e0
+--- /dev/null
++++ b/miniapp/public/muscles/README.md
+@@ -0,0 +1,4 @@
++Anatomy images for Train > All exercises > Exercises by muscle.
++One PNG per muscle_group key in data/core_exercises.json:
++chest back shoulders biceps triceps core quads hamstrings glutes calves (.png)
++Grey body, target muscle in orange, square. Missing file = placeholder. Served at /muscles/<key>.png.
+diff --git a/miniapp/src/App.tsx b/miniapp/src/App.tsx
+index 0dfe2df..3213ccf 100644
+--- a/miniapp/src/App.tsx
++++ b/miniapp/src/App.tsx
+@@ -7,10 +7,13 @@
+  *     /plan                 Plan: calendar, current program, details, weekly volume
+  *     /plan/edit[/{day}]    split editor with the energy bar
+  *     /plan/programs[/new]  all programs, create a program
+- *     /workout              Train: workout-day screen (statuses, last time's numbers, Start)
++ *     /workout              Train home: Splits and All exercises
++ *     /workout/session      session of the active split (statuses, last time's numbers, Start)
++ *     /workout/splits[/{id}]  splits (active on top), split detail with "Choose this split"
++ *     /workout/exercises[/muscle/{key}]  by muscle (grid) or all (search); one muscle's exercises
+  *     /workout/live         live logger (rest timer, supersets, notes, PRs, finish summary)
+  *     /workout/go           guided workout (countdown, exercise screen, rest timer, summary)
+- *     /train                exercise library
++ *     /train                All exercises (old bot link)
+  *     /profile              Profile: character, level, XP, achievements, settings (Stage 6)
+  *     /profile/edit         edit profile answers
+  *     /exercise/{id}        exercise detail
+@@ -26,7 +29,11 @@ import { haptic } from "./lib/telegram";
+ import { translate, type TextKey } from "./i18n";
+ import { TabBar } from "./components/TabBar";
+ import { ExerciseDetail } from "./screens/ExerciseDetail";
+-import { Library } from "./screens/Library";
++import { AllExercises } from "./screens/AllExercises";
++import { MuscleExercises } from "./screens/MuscleExercises";
++import { SplitDetail } from "./screens/SplitDetail";
++import { Splits } from "./screens/Splits";
++import { TrainHome } from "./screens/TrainHome";
+ import { Logger } from "./screens/Logger";
+ import { Profile } from "./screens/Profile";
+ import { ProfileEdit } from "./screens/ProfileEdit";
+@@ -121,8 +128,16 @@ export function App() {
+ 
+   if (state.kind === "main") {
+     let screen;
+-    if (route.name === "library") {
+-      screen = <Library t={t} hasProfile locale={locale} />;
++    if (route.name === "exercises") {
++      screen = <AllExercises t={t} locale={locale} />;
++    } else if (route.name === "muscle") {
++      screen = <MuscleExercises key={route.key} muscle={route.key} t={t} />;
++    } else if (route.name === "splits") {
++      screen = <Splits t={t} />;
++    } else if (route.name === "split") {
++      screen = <SplitDetail key={route.id} id={route.id} t={t} />;
++    } else if (route.name === "workoutSession") {
++      screen = <TrainDay t={t} />;
+     } else if (route.name === "exercise") {
+       screen = <ExerciseDetail id={route.id} t={t} attribution={state.config.attribution} />;
+     } else if (route.name === "plan") {
+@@ -134,7 +149,7 @@ export function App() {
+     } else if (route.name === "programNew") {
+       screen = <ProgramNew t={t} />;
+     } else if (route.name === "workout") {
+-      screen = <TrainDay t={t} />;
++      screen = <TrainHome t={t} />;
+     } else if (route.name === "workoutLive") {
+       screen = <Logger t={t} />;
+     } else if (route.name === "workoutGuided") {
+diff --git a/miniapp/src/components/AzIndex.css b/miniapp/src/components/AzIndex.css
+deleted file mode 100644
+index 2328897..0000000
+--- a/miniapp/src/components/AzIndex.css
++++ /dev/null
+@@ -1,42 +0,0 @@
+-/* A-Z side index (components/AzIndex.tsx). */
+-
+-.az-index {
+-  position: fixed;
+-  top: 50%;
+-  right: 2px;
+-  z-index: 4;
+-  display: flex;
+-  flex-direction: column;
+-  align-items: center;
+-  padding: var(--space-1) 0;
+-  transform: translateY(-50%);
+-  touch-action: none;                /* sliding along the strip must not scroll the page */
+-  user-select: none;
+-  -webkit-user-select: none;
+-}
+-
+-.az-index-letter {
+-  min-width: 22px;
+-  min-height: 17px;
+-  padding: 0 4px;
+-  border: 0;
+-  background: transparent;
+-  color: var(--color-mint);
+-  font-size: 11px;
+-  font-weight: var(--font-weight-semibold);
+-  line-height: 17px;
+-}
+-
+-.az-index-letter:active {
+-  color: var(--color-lime);
+-}
+-
+-/* Room for the index so it never covers the rows. */
+-.library.has-az .rows {
+-  padding-right: 20px;
+-}
+-
+-/* Jumping to a letter leaves a little space above its header. */
+-.az-section {
+-  scroll-margin-top: var(--space-2);
+-}
+diff --git a/miniapp/src/components/AzIndex.tsx b/miniapp/src/components/AzIndex.tsx
+deleted file mode 100644
+index 9143411..0000000
+--- a/miniapp/src/components/AzIndex.tsx
++++ /dev/null
+@@ -1,55 +0,0 @@
+-/*
+- * A-Z side index for long alphabetical lists (like a phone's contacts).
+- * Tap a letter, or slide a finger along the strip, to jump to that section.
+- * Each section needs id = idPrefix + letter (for example "az-B").
+- */
+-import { useRef } from "react";
+-import { haptic } from "../lib/telegram";
+-import "./AzIndex.css";
+-
+-export function AzIndex({ letters, idPrefix, label }: { letters: string[]; idPrefix: string; label: string }) {
+-  const last = useRef<string | null>(null);   // last letter jumped to (no repeat haptics while sliding)
+-  const touched = useRef(false);              // a touch already handled the tap; skip the click after it
+-
+-  const jump = (letter: string | undefined) => {
+-    if (!letter || letter === last.current) return;
+-    last.current = letter;
+-    haptic.select();
+-    document.getElementById(idPrefix + letter)?.scrollIntoView({ block: "start" });
+-  };
+-
+-  const letterAt = (x: number, y: number): string | undefined => {
+-    const el = document.elementFromPoint(x, y);
+-    return el instanceof HTMLElement ? el.dataset.letter : undefined;
+-  };
+-
+-  if (letters.length < 2) return null;
+-
+-  return (
+-    <nav className="az-index" aria-label={label}
+-         onTouchStart={(e) => {
+-           touched.current = true;
+-           last.current = null;
+-           const touch = e.touches[0];
+-           if (touch) jump(letterAt(touch.clientX, touch.clientY));
+-         }}
+-         onTouchMove={(e) => {
+-           const touch = e.touches[0];
+-           if (touch) jump(letterAt(touch.clientX, touch.clientY));
+-         }}>
+-      {letters.map((letter) => (
+-        <button key={letter} type="button" className="az-index-letter" data-letter={letter}
+-                onClick={() => {
+-                  if (touched.current) {
+-                    touched.current = false;
+-                    return;
+-                  }
+-                  last.current = null;
+-                  jump(letter);
+-                }}>
+-          {letter}
+-        </button>
+-      ))}
+-    </nav>
+-  );
+-}
+diff --git a/miniapp/src/components/TabBar.tsx b/miniapp/src/components/TabBar.tsx
+index dad46f2..31633b5 100644
+--- a/miniapp/src/components/TabBar.tsx
++++ b/miniapp/src/components/TabBar.tsx
+@@ -10,7 +10,7 @@ import { Person } from "./ProfileIcons";
+ const TABS: { route: Route; key: TextKey; icon: ReactNode; match: Route["name"][] }[] = [
+   { route: { name: "home" }, key: "tab_home", icon: <Home />, match: ["home"] },
+   { route: { name: "plan" }, key: "tab_plan", icon: <Calendar />, match: ["plan", "planEdit", "programs", "programNew"] },
+-  { route: { name: "workout" }, key: "tab_train", icon: <Dumbbell />, match: ["workout", "workoutLive", "library", "exercise"] },
++  { route: { name: "workout" }, key: "tab_train", icon: <Dumbbell />, match: ["workout", "workoutLive", "workoutSession", "splits", "split", "exercises", "muscle", "exercise"] },
+   { route: { name: "profile" }, key: "tab_profile", icon: <Person />, match: ["profile", "profileEdit"] },
+ ];
+ 
+diff --git a/miniapp/src/i18n/train.en.json b/miniapp/src/i18n/train.en.json
+index fe828ba..fab9080 100644
+--- a/miniapp/src/i18n/train.en.json
++++ b/miniapp/src/i18n/train.en.json
+@@ -6,7 +6,6 @@
+   "train_in_progress": "Workout in progress",
+   "train_progress": "{done} of {planned} sets done",
+   "train_start_new": "Start this day instead",
+-  "train_library": "Exercise library",
+   "train_last": "Last: {sets}",
+   "train_first_time": "First time: start light",
+   "train_target": "{sets} × {reps}",
+@@ -84,5 +83,30 @@
+   "train_err_err_bad_exercise": "This exercise is no longer in the workout.",
+   "train_err_err_no_set": "This set no longer exists.",
+   "train_err_err_bad_group": "Pick a superset group A–D.",
+-  "train_err_profile_required": "Finish your profile first."
++  "train_err_profile_required": "Finish your profile first.",
++  "train_splits": "Splits",
++  "train_splits_hint": "Your program days — pick the active one",
++  "train_all_exercises": "All exercises",
++  "train_all_exercises_hint": "Browse by muscle or search by name",
++  "train_active_split": "Active split",
++  "train_open_session": "Open session",
++  "train_session": "Session",
++  "split_active_badge": "Active",
++  "splits_other": "Other splits",
++  "splits_empty": "No splits in your program yet.",
++  "split_meta": "{n} exercises · ~{min} min",
++  "split_description": "Targets {muscles}.",
++  "split_empty": "No exercises in this split yet.",
++  "split_stat_exercises": "exercises",
++  "split_stat_minutes": "min",
++  "split_stat_hard_sets": "hard sets",
++  "split_choose": "Choose this split",
++  "split_current": "Current split",
++  "split_chosen": "{name} is now your active split",
++  "exercises_by_muscle": "Exercises by muscle",
++  "exercises_all": "All exercises",
++  "exercises_search": "Search by name",
++  "muscle_count": "{n} exercises",
++  "muscle_none": "No exercises for this muscle yet.",
++  "train_err_no_split": "This split no longer exists."
+ }
+diff --git a/miniapp/src/i18n/train.ru.json b/miniapp/src/i18n/train.ru.json
+index f84dd5c..96bcd3c 100644
+--- a/miniapp/src/i18n/train.ru.json
++++ b/miniapp/src/i18n/train.ru.json
+@@ -6,7 +6,6 @@
+   "train_in_progress": "Тренировка идёт",
+   "train_progress": "Выполнено подходов: {done} из {planned}",
+   "train_start_new": "Начать этот день вместо неё",
+-  "train_library": "Библиотека упражнений",
+   "train_last": "Прошлый раз: {sets}",
+   "train_first_time": "Первый раз: начните с лёгкого веса",
+   "train_target": "{sets} × {reps}",
+@@ -84,5 +83,30 @@
+   "train_err_err_bad_exercise": "Этого упражнения больше нет в тренировке.",
+   "train_err_err_no_set": "Этого подхода больше нет.",
+   "train_err_err_bad_group": "Выберите группу суперсета A–D.",
+-  "train_err_profile_required": "Сначала заполните профиль."
++  "train_err_profile_required": "Сначала заполните профиль.",
++  "train_splits": "Сплиты",
++  "train_splits_hint": "Дни вашей программы — выберите активный",
++  "train_all_exercises": "Все упражнения",
++  "train_all_exercises_hint": "По мышцам или поиск по названию",
++  "train_active_split": "Активный сплит",
++  "train_open_session": "Открыть тренировку",
++  "train_session": "Тренировка",
++  "split_active_badge": "Активный",
++  "splits_other": "Другие сплиты",
++  "splits_empty": "В программе пока нет сплитов.",
++  "split_meta": "Упражнений: {n} · ~{min} мин",
++  "split_description": "Нагрузка: {muscles}.",
++  "split_empty": "В этом сплите пока нет упражнений.",
++  "split_stat_exercises": "упражнений",
++  "split_stat_minutes": "мин",
++  "split_stat_hard_sets": "рабочих подходов",
++  "split_choose": "Выбрать этот сплит",
++  "split_current": "Текущий сплит",
++  "split_chosen": "{name} — теперь активный сплит",
++  "exercises_by_muscle": "По мышцам",
++  "exercises_all": "Все упражнения",
++  "exercises_search": "Поиск по названию",
++  "muscle_count": "Упражнений: {n}",
++  "muscle_none": "Для этой мышцы пока нет упражнений.",
++  "train_err_no_split": "Этот сплит больше не существует."
+ }
+diff --git a/miniapp/src/lib/flash.ts b/miniapp/src/lib/flash.ts
+new file mode 100644
+index 0000000..5366104
+--- /dev/null
++++ b/miniapp/src/lib/flash.ts
+@@ -0,0 +1,10 @@
++/* A one-time message carried across a navigation (e.g. "Split chosen" shown on the Splits list). */
++let pending: string | null = null;
++
++export function setFlash(message: string): void { pending = message; }
++
++export function takeFlash(): string | null {
++  const message = pending;
++  pending = null;
++  return message;
++}
+diff --git a/miniapp/src/lib/router.ts b/miniapp/src/lib/router.ts
+index 6940a03..d6eb9eb 100644
+--- a/miniapp/src/lib/router.ts
++++ b/miniapp/src/lib/router.ts
+@@ -7,13 +7,18 @@
+  *   /plan/edit[/{dayId}]   split editor (optionally opened on one day)
+  *   /plan/programs         all programs (Current / Available / Created)
+  *   /plan/programs/new     create a program
+- *   /workout               Train tab: workout-day screen (Stage 5)
++ *   /workout               Train tab home: two cards, Splits and All exercises
++ *   /workout/session       session view of the active split (load, exercises, Start)
++ *   /workout/splits        all splits, the active one on top
++ *   /workout/splits/{id}   split detail with "Choose this split"
++ *   /workout/exercises     All exercises: by muscle (2-column grid) or the whole list
++ *   /workout/exercises/muscle/{key}   exercises of one muscle
+  *   /workout/live          live logger for the workout in progress
+  *   /workout/go            guided workout: countdown, exercise screen, rest, summary
+  *   /targets               daily targets (calories, macros, goal date)
+  *   /profile               Profile tab: character, level, achievements, settings (Stage 6)
+  *   /profile/edit          edit profile
+- *   /train                 exercise library (the bot's 📚 Exercises button links here)
++ *   /train                 All exercises (the bot's 📚 Exercises button links here)
+  *   /exercise/{id}         exercise detail
+  */
+ import { useEffect, useState } from "react";
+@@ -25,22 +30,35 @@ export type Route =
+   | { name: "programs" }
+   | { name: "programNew" }
+   | { name: "workout" }
++  | { name: "workoutSession" }
++  | { name: "splits" }
++  | { name: "split"; id: number }
++  | { name: "exercises" }
++  | { name: "muscle"; key: string }
+   | { name: "profile" }
+   | { name: "targets" }
+   | { name: "profileEdit" }
+   | { name: "workoutLive" }
+   | { name: "workoutGuided" }
+-  | { name: "library" }
+   | { name: "exercise"; id: string };
+ 
+ export function parse(path: string): Route {
+   const parts = path.replace(/\/+$/, "").split("/").filter(Boolean);
+-  if (parts[0] === "train" && parts.length === 1) return { name: "library" };
++  if (parts[0] === "train" && parts.length === 1) return { name: "exercises" };
+   if (parts[0] === "targets") return { name: "targets" };
+   if (parts[0] === "profile") return parts[1] === "edit" ? { name: "profileEdit" } : { name: "profile" };
+   if (parts[0] === "workout") {
+     if (parts[1] === "live") return { name: "workoutLive" };
+     if (parts[1] === "go") return { name: "workoutGuided" };
++    if (parts[1] === "session") return { name: "workoutSession" };
++    if (parts[1] === "splits") {
++      const id = Number(parts[2]);
++      return Number.isInteger(id) && id > 0 ? { name: "split", id } : { name: "splits" };
++    }
++    if (parts[1] === "exercises") {
++      if (parts[2] === "muscle" && parts[3]) return { name: "muscle", key: decodeURIComponent(parts[3]) };
++      return { name: "exercises" };
++    }
+     return { name: "workout" };
+   }
+   if (parts[0] === "exercise" && parts[1]) return { name: "exercise", id: decodeURIComponent(parts[1]) };
+@@ -68,7 +86,11 @@ export function pathOf(route: Route): string {
+     case "profileEdit": return "/profile/edit";
+     case "workoutLive": return "/workout/live";
+     case "workoutGuided": return "/workout/go";
+-    case "library": return "/train";
++    case "workoutSession": return "/workout/session";
++    case "splits": return "/workout/splits";
++    case "split": return "/workout/splits/" + route.id;
++    case "exercises": return "/workout/exercises";
++    case "muscle": return "/workout/exercises/muscle/" + encodeURIComponent(route.key);
+     case "exercise": return "/exercise/" + encodeURIComponent(route.id);
+   }
+ }
+diff --git a/miniapp/src/lib/trainApi.ts b/miniapp/src/lib/trainApi.ts
+index 1a094c8..161732c 100644
+--- a/miniapp/src/lib/trainApi.ts
++++ b/miniapp/src/lib/trainApi.ts
+@@ -2,7 +2,7 @@
+  * Stage 5 API client: workout-day screen and live logger.
+  * Shapes match api/routes/train.py and services/train.py.
+  */
+-import { api, ApiError } from "./api";
++import { api, ApiError, type ExerciseList } from "./api";
+ import type { TextKey } from "../i18n";
+ import type { DayHead, EnergyLoad } from "./planApi";
+ 
+@@ -93,6 +93,15 @@ export interface TrainDay extends DayHead {
+   exercises: TrainDayExercise[];
+ }
+ 
++export interface Split extends TrainDay {
++  muscles: string[];   // primary muscles, most sets first
++  active: boolean;     // the split the next workout uses
++}
++
++export interface SplitList { active_index: number; splits: Split[]; workout_active: boolean }
++
++export interface MuscleGroup { key: string; count: number; image: string }
++
+ export interface TrainOverview { active: WorkoutView | null; next_index: number; days: TrainDay[] }
+ 
+ export interface LogResult {
+@@ -117,6 +126,14 @@ export interface Summary {
+ export interface NewSet { index: number; weight_kg: number; reps: number; rpe: number | null; warmup: boolean }
+ 
+ export const getTrain = () => api<TrainOverview>("/api/train");
++export const getSplits = () => api<SplitList>("/api/splits");
++export const getSplit = (id: number) => api<Split>(`/api/splits/${id}`);
++export const chooseSplit = (id: number) => api<SplitList>(`/api/splits/${id}/activate`, { method: "POST" });
++export const getMuscles = () => api<{ items: MuscleGroup[] }>("/api/exercises/muscles");
++export const getMuscleExercises = (key: string) =>
++  api<ExerciseList>("/api/exercises/muscles/" + encodeURIComponent(key));
++export const getAllExercises = () => api<ExerciseList>("/api/exercises");
++
+ export const startWorkout = (dayIndex: number, force = false) =>
+   api<WorkoutView>("/api/workouts", { method: "POST", body: { day_index: dayIndex, force } });
+ export const logSet = (id: number, body: NewSet) =>
+@@ -135,7 +152,7 @@ export const finishWorkout = (id: number) => api<Summary>(`/api/workouts/${id}/f
+ const KNOWN = new Set([
+   "workout_active", "workout_finished", "no_workout", "bad_day", "no_substitute", "swap_after_sets",
+   "err_set_weight", "err_set_reps", "err_set_rpe", "err_bad_exercise", "err_no_set", "err_bad_group",
+-  "profile_required",
++  "profile_required", "no_split",
+ ]);
+ 
+ export function trainErrorKey(error: unknown): TextKey {
+diff --git a/miniapp/src/screens/AllExercises.tsx b/miniapp/src/screens/AllExercises.tsx
+new file mode 100644
+index 0000000..53650f1
+--- /dev/null
++++ b/miniapp/src/screens/AllExercises.tsx
+@@ -0,0 +1,147 @@
++/*
++ * Train > All exercises. A segmented toggle (remembered for this session):
++ *   By muscle  2-column grid of anatomy cards (public/muscles/{key}.png, placeholder if missing)
++ *   All        every exercise, A-Z, with a name search
++ */
++import { useCallback, useEffect, useMemo, useState } from "react";
++import type { ExerciseList } from "../lib/api";
++import { getAllExercises, getMuscles, trainErrorKey, type MuscleGroup } from "../lib/trainApi";
++import { goBack, navigate } from "../lib/router";
++import { bindNativeBack, haptic } from "../lib/telegram";
++import type { TextKey } from "../i18n";
++import { Close, Dumbbell, Search } from "../components/Icons";
++import { ExerciseRow } from "../components/ExerciseRow";
++import { BackHeader } from "./Splits";
++import "./train.css";
++
++type T = (key: TextKey, vars?: Record<string, string | number>) => string;
++type Mode = "muscle" | "all";
++
++const MODE_KEY = "gym24.exercises.mode";
++const SEARCH_KEY = "gym24.exercises.q";
++const MUSCLE_IMAGES = "/muscles/";
++
++function savedMode(): Mode {
++  try { return sessionStorage.getItem(MODE_KEY) === "all" ? "all" : "muscle"; } catch { return "muscle"; }
++}
++
++export function AllExercises({ t, locale }: { t: T; locale: string }) {
++  const [mode, setMode] = useState<Mode>(savedMode);
++  const back = () => goBack({ name: "workout" });
++  useEffect(() => bindNativeBack(back), []); // eslint-disable-line react-hooks/exhaustive-deps
++
++  function pick(next: Mode) {
++    if (next === mode) return;
++    haptic.select();
++    setMode(next);
++    try { sessionStorage.setItem(MODE_KEY, next); } catch { /* private mode */ }
++  }
++
++  return (
++    <main className="train">
++      <BackHeader title={t("train_all_exercises")} t={t} onBack={back} />
++      <div className="segmented" role="tablist" aria-label={t("train_all_exercises")}>
++        <button type="button" role="tab" aria-selected={mode === "muscle"}
++                className={"segment" + (mode === "muscle" ? " segment-on" : "")} onClick={() => pick("muscle")}>
++          {t("exercises_by_muscle")}
++        </button>
++        <button type="button" role="tab" aria-selected={mode === "all"}
++                className={"segment" + (mode === "all" ? " segment-on" : "")} onClick={() => pick("all")}>
++          {t("exercises_all")}
++        </button>
++      </div>
++      {mode === "muscle" ? <MuscleGrid t={t} /> : <AllList t={t} locale={locale} />}
++    </main>
++  );
++}
++
++function MuscleGrid({ t }: { t: T }) {
++  const [items, setItems] = useState<MuscleGroup[] | null>(null);
++  const [error, setError] = useState<TextKey | null>(null);
++  const load = useCallback(() => {
++    setError(null);
++    getMuscles().then((r) => setItems(r.items)).catch((e) => setError(trainErrorKey(e)));
++  }, []);
++  useEffect(load, [load]);
++
++  if (error) return <ErrorCard t={t} error={error} onRetry={load} />;
++  if (!items) return <div className="spinner center-spinner" aria-label={t("loading")} />;
++  if (items.length === 0) return <div className="empty"><p>{t("no_results")}</p></div>;
++  return (
++    <div className="muscle-grid">
++      {items.map((m) => (
++        <button key={m.key} type="button" className="muscle-card"
++                onClick={() => { haptic.tap(); navigate({ name: "muscle", key: m.key }); }}>
++          <MuscleImage file={m.image} />
++          <span className="muscle-name">{t(("muscle_" + m.key) as TextKey)}</span>
++          <span className="muted small">{t("muscle_count", { n: m.count })}</span>
++        </button>
++      ))}
++    </div>
++  );
++}
++
++export function MuscleImage({ file }: { file: string }) {
++  const [failed, setFailed] = useState(false);
++  return (
++    <span className="muscle-image">
++      {failed ? <span className="muscle-placeholder"><Dumbbell /></span>
++              : <img src={MUSCLE_IMAGES + file} alt="" loading="lazy" decoding="async" onError={() => setFailed(true)} />}
++    </span>
++  );
++}
++
++function AllList({ t, locale }: { t: T; locale: string }) {
++  const [data, setData] = useState<ExerciseList | null>(null);
++  const [error, setError] = useState<TextKey | null>(null);
++  const [q, setQ] = useState(() => { try { return sessionStorage.getItem(SEARCH_KEY) ?? ""; } catch { return ""; } });
++  const load = useCallback(() => {
++    setError(null);
++    getAllExercises().then(setData).catch((e) => setError(trainErrorKey(e)));
++  }, []);
++  useEffect(load, [load]);
++  useEffect(() => { try { sessionStorage.setItem(SEARCH_KEY, q); } catch { /* ignore */ } }, [q]);
++
++  const shown = useMemo(() => {
++    const needle = q.trim().toLocaleLowerCase(locale);
++    const items = [...(data?.items ?? [])].sort((a, b) => a.name.localeCompare(b.name, locale));
++    return needle ? items.filter((i) => i.name.toLocaleLowerCase(locale).includes(needle)) : items;
++  }, [data, q, locale]);
++
++  return (
++    <>
++      <label className="search">
++        <Search />
++        <input type="search" value={q} placeholder={t("exercises_search")} enterKeyHint="search"
++               aria-label={t("exercises_search")} maxLength={60} onChange={(e) => setQ(e.target.value)} />
++        {q && (
++          <button type="button" className="search-clear" aria-label={t("clear")} onClick={() => setQ("")}><Close /></button>
++        )}
++      </label>
++      {error && <ErrorCard t={t} error={error} onRetry={load} />}
++      {!data && !error && <div className="spinner center-spinner" aria-label={t("loading")} />}
++      {data && shown.length === 0 && (
++        <div className="empty">
++          <p>{t("no_results")}</p>
++          {q && <button type="button" className="button-link" onClick={() => setQ("")}>{t("clear")}</button>}
++        </div>
++      )}
++      {data && shown.length > 0 && (
++        <div className="rows">
++          {shown.map((item) => (
++            <ExerciseRow key={item.id} item={item} t={t} onOpen={() => navigate({ name: "exercise", id: item.id })} />
++          ))}
++        </div>
++      )}
++    </>
++  );
++}
++
++export function ErrorCard({ t, error, onRetry }: { t: T; error: TextKey; onRetry: () => void }) {
++  return (
++    <section className="card center" role="alert">
++      <p>{t(error)}</p>
++      <button type="button" className="button-primary" onClick={() => { haptic.tap(); onRetry(); }}>{t("retry")}</button>
++    </section>
++  );
++}
+diff --git a/miniapp/src/screens/ExerciseDetail.tsx b/miniapp/src/screens/ExerciseDetail.tsx
+index c895d21..72f1d6b 100644
+--- a/miniapp/src/screens/ExerciseDetail.tsx
++++ b/miniapp/src/screens/ExerciseDetail.tsx
+@@ -27,7 +27,7 @@ export function ExerciseDetail({ id, t, attribution }: { id: string; t: T; attri
+     return () => { live = false; };
+   }, [id]);
+ 
+-  const back = () => goBack({ name: "library" });
++  const back = () => goBack({ name: "exercises" });
+   useEffect(() => bindNativeBack(back), [id]); // eslint-disable-line react-hooks/exhaustive-deps
+ 
+   return (
+diff --git a/miniapp/src/screens/Home.tsx b/miniapp/src/screens/Home.tsx
+index 4fafade..d69c6ec 100644
+--- a/miniapp/src/screens/Home.tsx
++++ b/miniapp/src/screens/Home.tsx
+@@ -116,7 +116,7 @@ export function Home({ t, name, locale }: { t: T; name: string; locale: string }
+               {busy ? <span className="spinner spinner-small" /> : <><Dumbbell />{t("home_start")}</>}
+             </button>
+             <button type="button" className="button-link"
+-                    onClick={() => { haptic.tap(); navigate({ name: "workout" }); }}>{t("home_see_day")}</button>
++                    onClick={() => { haptic.tap(); navigate({ name: "workoutSession" }); }}>{t("home_see_day")}</button>
+           </div>
+         </section>
+       )}
+@@ -186,7 +186,7 @@ export function Home({ t, name, locale }: { t: T; name: string; locale: string }
+       )}
+ 
+       <nav className="home-links" aria-label={t("home_links")}>
+-        <button type="button" className="home-link" onClick={() => { haptic.tap(); navigate({ name: "library" }); }}>
++        <button type="button" className="home-link" onClick={() => { haptic.tap(); navigate({ name: "exercises" }); }}>
+           <Search /><span>{t("home_link_library")}</span><ChevronRight />
+         </button>
+         <button type="button" className="home-link" onClick={() => { haptic.tap(); navigate({ name: "plan" }); }}>
+diff --git a/miniapp/src/screens/Library.tsx b/miniapp/src/screens/Library.tsx
+deleted file mode 100644
+index 0ee30d9..0000000
+--- a/miniapp/src/screens/Library.tsx
++++ /dev/null
+@@ -1,192 +0,0 @@
+-/*
+- * Exercise library (Train tab): search, muscle chips, filters, A-Z list with a side index.
+- * The query is kept for this session, so coming back from an exercise restores it.
+- */
+-import { useEffect, useMemo, useRef, useState } from "react";
+-import { getExercises, type ExerciseItem, type ExerciseList, type LibraryQuery } from "../lib/api";
+-import { navigate } from "../lib/router";
+-import { haptic } from "../lib/telegram";
+-import type { TextKey } from "../i18n";
+-import { Close, Search, Sliders } from "../components/Icons";
+-import { ExerciseRow } from "../components/ExerciseRow";
+-import { AzIndex } from "../components/AzIndex";
+-
+-type T = (key: TextKey, vars?: Record<string, string | number>) => string;
+-
+-const STORE = "gym24.library.v1";
+-const SECTION_ID = "az-";   // section ids: az-A, az-B, ... (used by the side index)
+-const EMPTY: LibraryQuery = { q: "", muscle: null, equipment: null, difficulty: null, home: false, fits: false };
+-
+-function loadQuery(): LibraryQuery {
+-  try {
+-    return { ...EMPTY, ...JSON.parse(sessionStorage.getItem(STORE) ?? "{}") };
+-  } catch {
+-    return EMPTY;
+-  }
+-}
+-
+-export function Library({ t, hasProfile, locale }: { t: T; hasProfile: boolean; locale: string }) {
+-  const [query, setQuery] = useState<LibraryQuery>(loadQuery);
+-  const [typed, setTyped] = useState(query.q);
+-  const [data, setData] = useState<ExerciseList | null>(null);
+-  const [failed, setFailed] = useState(false);
+-  const [sheet, setSheet] = useState(false);
+-  const latest = useRef(0);
+-
+-  // Debounce typing; filters apply at once.
+-  useEffect(() => {
+-    const timer = setTimeout(() => setQuery((q) => (q.q === typed ? q : { ...q, q: typed })), 250);
+-    return () => clearTimeout(timer);
+-  }, [typed]);
+-
+-  useEffect(() => {
+-    sessionStorage.setItem(STORE, JSON.stringify(query));
+-    const id = ++latest.current;
+-    setFailed(false);
+-    getExercises(query)
+-      .then((result) => { if (id === latest.current) setData(result); })
+-      .catch(() => { if (id === latest.current) setFailed(true); });
+-  }, [query]);
+-
+-  const extraFilters = [query.equipment, query.difficulty, query.home || null, query.fits || null]
+-    .filter(Boolean).length;
+-
+-  // A-Z sections; letters follow the user's language rules for sorting.
+-  const sections = useMemo(() => {
+-    const groups = new Map<string, ExerciseItem[]>();
+-    for (const item of data?.items ?? []) {
+-      const letter = item.name.charAt(0).toLocaleUpperCase(locale);
+-      groups.set(letter, [...(groups.get(letter) ?? []), item]);
+-    }
+-    return [...groups.entries()];
+-  }, [data, locale]);
+-
+-  // The side index only helps when the list has several letters.
+-  const showIndex = sections.length > 1 && !sheet;
+-
+-  const set = (patch: Partial<LibraryQuery>) => setQuery((q) => ({ ...q, ...patch }));
+-
+-  return (
+-    <main className={"library" + (showIndex ? " has-az" : "")}>
+-      <h1 className="screen-title left">{t("library_title")}</h1>
+-
+-      <div className="search-row">
+-        <label className="search">
+-          <Search />
+-          <input type="search" value={typed} placeholder={t("search_placeholder")} enterKeyHint="search"
+-                 aria-label={t("search_placeholder")} maxLength={60}
+-                 onChange={(e) => setTyped(e.target.value)} />
+-          {typed && (
+-            <button type="button" className="search-clear" aria-label={t("clear")} onClick={() => setTyped("")}>
+-              <Close />
+-            </button>
+-          )}
+-        </label>
+-        <button type="button" className={"filter-button" + (extraFilters ? " filter-button-on" : "")}
+-                aria-label={t("filters")} aria-expanded={sheet} onClick={() => { haptic.tap(); setSheet(true); }}>
+-          <Sliders />
+-          {extraFilters > 0 && <span className="filter-count">{extraFilters}</span>}
+-        </button>
+-      </div>
+-
+-      <div className="chips" role="radiogroup" aria-label={t("muscle")}>
+-        {[null, ...(data?.muscles ?? [])].map((m) => (
+-          <button key={m ?? "all"} type="button" role="radio" aria-checked={query.muscle === m}
+-                  className={"chip" + (query.muscle === m ? " chip-on" : "")}
+-                  onClick={() => { haptic.select(); set({ muscle: m }); }}>
+-            {m ? t(("muscle_" + m) as TextKey) : t("all")}
+-          </button>
+-        ))}
+-      </div>
+-
+-      {failed && <p className="muted center-text" role="alert">{t("error_generic")}</p>}
+-      {!data && !failed && <div className="spinner center-spinner" aria-label={t("loading")} />}
+-
+-      {data && (
+-        <>
+-          <p className="result-count">{t("results", { n: data.items.length, total: data.total })}</p>
+-          {data.items.length === 0 ? (
+-            <div className="empty">
+-              <p>{t("no_results")}</p>
+-              <button type="button" className="button-link"
+-                      onClick={() => { setTyped(""); setQuery(EMPTY); }}>{t("reset_filters")}</button>
+-            </div>
+-          ) : (
+-            sections.map(([letter, items]) => (
+-              <section key={letter} id={SECTION_ID + letter} className="az-section" aria-label={letter}>
+-                <h2 className="az-letter">{letter}</h2>
+-                <div className="rows">
+-                  {items.map((item) => (
+-                    <ExerciseRow key={item.id} item={item} t={t}
+-                                 onOpen={() => navigate({ name: "exercise", id: item.id })} />
+-                  ))}
+-                </div>
+-              </section>
+-            ))
+-          )}
+-          {showIndex && (
+-            <AzIndex letters={sections.map(([letter]) => letter)} idPrefix={SECTION_ID} label={t("library_title")} />
+-          )}
+-        </>
+-      )}
+-
+-      {sheet && data && (
+-        <div className="sheet-backdrop" onClick={() => setSheet(false)}>
+-          <div className="sheet" role="dialog" aria-modal="true" aria-label={t("filters")}
+-               onClick={(e) => e.stopPropagation()}>
+-            <div className="sheet-handle" />
+-            <h2 className="sheet-title">{t("filters")}</h2>
+-
+-            <FilterGroup label={t("equipment")} value={query.equipment} t={t} prefix="equip_"
+-                         options={data.equipment} onChange={(equipment) => set({ equipment })} />
+-            <FilterGroup label={t("difficulty")} value={query.difficulty} t={t} prefix="level_"
+-                         options={data.difficulties} onChange={(difficulty) => set({ difficulty })} />
+-
+-            <Switch label={t("home_only")} checked={query.home} onChange={(home) => set({ home })} />
+-            {hasProfile && <Switch label={t("fits_only")} checked={query.fits} onChange={(fits) => set({ fits })} />}
+-
+-            <div className="sheet-actions">
+-              <button type="button" className="button-link"
+-                      onClick={() => set({ equipment: null, difficulty: null, home: false, fits: false })}>
+-                {t("reset_filters")}
+-              </button>
+-              <button type="button" className="button-primary" onClick={() => { haptic.tap(); setSheet(false); }}>
+-                {t("show_results", { n: data.items.length })}
+-              </button>
+-            </div>
+-          </div>
+-        </div>
+-      )}
+-    </main>
+-  );
+-}
+-
+-function FilterGroup({ label, value, options, prefix, t, onChange }: {
+-  label: string; value: string | null; options: string[]; prefix: string; t: T;
+-  onChange: (value: string | null) => void;
+-}) {
+-  return (
+-    <fieldset className="filter-group">
+-      <legend>{label}</legend>
+-      <div className="chips wrap" role="radiogroup" aria-label={label}>
+-        {[null, ...options].map((o) => (
+-          <button key={o ?? "any"} type="button" role="radio" aria-checked={value === o}
+-                  className={"chip" + (value === o ? " chip-on" : "")}
+-                  onClick={() => { haptic.select(); onChange(o); }}>
+-            {o ? t((prefix + o.replace(/ /g, "_")) as TextKey) : t("any")}
+-          </button>
+-        ))}
+-      </div>
+-    </fieldset>
+-  );
+-}
+-
+-function Switch({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+-  return (
+-    <button type="button" role="switch" aria-checked={checked} className="switch-row"
+-            onClick={() => { haptic.select(); onChange(!checked); }}>
+-      <span>{label}</span>
+-      <span className={"switch" + (checked ? " switch-on" : "")}><span /></span>
+-    </button>
+-  );
+-}
+diff --git a/miniapp/src/screens/MuscleExercises.tsx b/miniapp/src/screens/MuscleExercises.tsx
+new file mode 100644
+index 0000000..e4a31c4
+--- /dev/null
++++ b/miniapp/src/screens/MuscleExercises.tsx
+@@ -0,0 +1,43 @@
++/* Train > All exercises > one muscle: every exercise whose primary muscle it is. */
++import { useCallback, useEffect, useState } from "react";
++import type { ExerciseList } from "../lib/api";
++import { getMuscleExercises, trainErrorKey } from "../lib/trainApi";
++import { goBack, navigate } from "../lib/router";
++import { bindNativeBack } from "../lib/telegram";
++import type { TextKey } from "../i18n";
++import { ExerciseRow } from "../components/ExerciseRow";
++import { BackHeader } from "./Splits";
++import { ErrorCard, MuscleImage } from "./AllExercises";
++import "./train.css";
++
++type T = (key: TextKey, vars?: Record<string, string | number>) => string;
++
++export function MuscleExercises({ muscle, t }: { muscle: string; t: T }) {
++  const [data, setData] = useState<ExerciseList | null>(null);
++  const [error, setError] = useState<TextKey | null>(null);
++  const load = useCallback(() => {
++    setError(null);
++    setData(null);
++    getMuscleExercises(muscle).then(setData).catch((e) => setError(trainErrorKey(e)));
++  }, [muscle]);
++  useEffect(load, [load]);
++  const back = () => goBack({ name: "exercises" });
++  useEffect(() => bindNativeBack(back), [muscle]); // eslint-disable-line react-hooks/exhaustive-deps
++
++  return (
++    <main className="train">
++      <BackHeader title={t(("muscle_" + muscle) as TextKey)} t={t} onBack={back} />
++      <div className="muscle-hero"><MuscleImage file={muscle + ".png"} /></div>
++      {error && <ErrorCard t={t} error={error} onRetry={load} />}
++      {!data && !error && <div className="spinner center-spinner" aria-label={t("loading")} />}
++      {data && data.items.length === 0 && <div className="empty"><p>{t("muscle_none")}</p></div>}
++      {data && data.items.length > 0 && (
++        <div className="rows">
++          {data.items.map((item) => (
++            <ExerciseRow key={item.id} item={item} t={t} onOpen={() => navigate({ name: "exercise", id: item.id })} />
++          ))}
++        </div>
++      )}
++    </main>
++  );
++}
+diff --git a/miniapp/src/screens/SplitDetail.tsx b/miniapp/src/screens/SplitDetail.tsx
+new file mode 100644
+index 0000000..8105c72
+--- /dev/null
++++ b/miniapp/src/screens/SplitDetail.tsx
+@@ -0,0 +1,99 @@
++/* Split detail: name, description, counts, exercises, and "Choose this split". */
++import { useEffect, useState } from "react";
++import { chooseSplit, getSplit, trainErrorKey, type Split } from "../lib/trainApi";
++import { dayName } from "../lib/planText";
++import { repRange } from "../lib/trainText";
++import { goBack, navigate } from "../lib/router";
++import { bindNativeBack, haptic } from "../lib/telegram";
++import { setFlash } from "../lib/flash";
++import type { TextKey } from "../i18n";
++import { ExerciseImage } from "../components/ExerciseImage";
++import { BackHeader, splitDescription } from "./Splits";
++import "./plan.css";
++import "./train.css";
++
++type T = (key: TextKey, vars?: Record<string, string | number>) => string;
++
++export function SplitDetail({ id, t }: { id: number; t: T }) {
++  const [split, setSplit] = useState<Split | null>(null);
++  const [error, setError] = useState<TextKey | null>(null);
++  const [busy, setBusy] = useState(false);
++
++  const load = () => {
++    setError(null);
++    getSplit(id).then(setSplit).catch((e) => setError(trainErrorKey(e)));
++  };
++  useEffect(load, [id]); // eslint-disable-line react-hooks/exhaustive-deps
++  const back = () => goBack({ name: "splits" });
++  useEffect(() => bindNativeBack(back), [id]); // eslint-disable-line react-hooks/exhaustive-deps
++
++  async function choose() {
++    if (!split || busy || split.active) return;
++    setBusy(true);
++    setError(null);
++    try {
++      await chooseSplit(split.id);
++      haptic.success();
++      setFlash(t("split_chosen", { name: dayName(split, t) }));
++      goBack({ name: "splits" });
++    } catch (e) {
++      haptic.error();
++      setError(trainErrorKey(e));
++      setBusy(false);
++    }
++  }
++
++  return (
++    <main className="train split-detail">
++      <BackHeader title={split ? dayName(split, t) : t("train_splits")} t={t} onBack={back} />
++
++      {error && (
++        <section className="card center" role="alert">
++          <p>{t(error)}</p>
++          {!split && <button type="button" className="button-primary" onClick={load}>{t("retry")}</button>}
++        </section>
++      )}
++      {!split && !error && <div className="spinner center-spinner" aria-label={t("loading")} />}
++
++      {split && (
++        <>
++          <section className={"card" + (split.active ? " split-active" : "")}>
++            {split.active && <span className="split-badge">{t("split_active_badge")}</span>}
++            <p className="split-desc">{splitDescription(split, t)}</p>
++            <div className="split-stats">
++              <span><b>{split.exercises.length}</b><small>{t("split_stat_exercises")}</small></span>
++              <span><b>~{split.minutes}</b><small>{t("split_stat_minutes")}</small></span>
++              <span><b>{split.energy.hard_sets}</b><small>{t("split_stat_hard_sets")}</small></span>
++            </div>
++          </section>
++
++          {split.exercises.length === 0 ? (
++            <div className="empty"><p>{t("split_empty")}</p></div>
++          ) : (
++            <ol className="train-list">
++              {split.exercises.map((ex, i) => (
++                <li key={ex.exercise_id + i}>
++                  <button type="button" className="train-row split-ex"
++                          onClick={() => { haptic.tap(); navigate({ name: "exercise", id: ex.exercise_id }); }}>
++                    <ExerciseImage still={ex.image} muscle={ex.muscle_group} size="thumb" />
++                    <span className="exercise-text">
++                      <span className="exercise-name">{ex.name}</span>
++                      <span className="exercise-meta">{t("train_target", { sets: ex.sets, reps: repRange(ex, t) })}</span>
++                    </span>
++                  </button>
++                </li>
++              ))}
++            </ol>
++          )}
++
++          <div className="split-footer">
++            <button type="button" className="button-primary" disabled={busy || split.active || split.exercises.length === 0}
++                    onClick={() => void choose()}>
++              {busy ? <span className="spinner spinner-small" /> : split.active ? t("split_current") : t("split_choose")}
++            </button>
++          </div>
++        </>
++      )}
++    </main>
++  );
++}
+diff --git a/miniapp/src/screens/Splits.tsx b/miniapp/src/screens/Splits.tsx
+new file mode 100644
+index 0000000..9033a9e
+--- /dev/null
++++ b/miniapp/src/screens/Splits.tsx
+@@ -0,0 +1,97 @@
++/* Train > Splits: the active split on top (highlighted), every other split below. */
++import { useCallback, useEffect, useState } from "react";
++import { getSplits, trainErrorKey, type Split, type SplitList } from "../lib/trainApi";
++import { dayName } from "../lib/planText";
++import { goBack, navigate } from "../lib/router";
++import { bindNativeBack, haptic } from "../lib/telegram";
++import { takeFlash } from "../lib/flash";
++import type { TextKey } from "../i18n";
++import { ArrowLeft, ChevronRight } from "../components/Icons";
++import "./plan.css";
++import "./train.css";
++
++type T = (key: TextKey, vars?: Record<string, string | number>) => string;
++
++export function splitDescription(split: Split, t: T): string {
++  const muscles = split.muscles.slice(0, 4).map((m) => t(("muscle_" + m) as TextKey));
++  return muscles.length ? t("split_description", { muscles: muscles.join(", ") }) : t("split_empty");
++}
++
++export function BackHeader({ title, t, onBack }: { title: string; t: T; onBack: () => void }) {
++  return (
++    <header className="train-sub-head">
++      <button type="button" className="round-button round-back" onClick={onBack} aria-label={t("back")}>
++        <ArrowLeft />
++      </button>
++      <h1 className="screen-title left">{title}</h1>
++    </header>
++  );
++}
++
++export function Splits({ t }: { t: T }) {
++  const [data, setData] = useState<SplitList | null>(null);
++  const [error, setError] = useState<TextKey | null>(null);
++  const [toast, setToast] = useState<string | null>(takeFlash);
++
++  const load = useCallback(() => {
++    setError(null);
++    getSplits().then(setData).catch((e) => setError(trainErrorKey(e)));
++  }, []);
++  useEffect(load, [load]);
++  const back = () => goBack({ name: "workout" });
++  useEffect(() => bindNativeBack(back), []); // eslint-disable-line react-hooks/exhaustive-deps
++  useEffect(() => {
++    if (!toast) return;
++    const timer = setTimeout(() => setToast(null), 2200);
++    return () => clearTimeout(timer);
++  }, [toast]);
++
++  const active = data?.splits.find((s) => s.active) ?? null;
++  const others = data?.splits.filter((s) => !s.active) ?? [];
++
++  return (
++    <main className="train">
++      <BackHeader title={t("train_splits")} t={t} onBack={back} />
++      {toast && <div className="toast" role="status">{toast}</div>}
++
++      {error && (
++        <section className="card center" role="alert">
++          <p>{t(error)}</p>
++          <button type="button" className="button-primary" onClick={load}>{t("retry")}</button>
++        </section>
++      )}
++      {!data && !error && <div className="spinner center-spinner" aria-label={t("loading")} />}
++      {data && data.splits.length === 0 && <div className="empty"><p>{t("splits_empty")}</p></div>}
++
++      {active && (
++        <button type="button" className="card split-card split-active"
++                onClick={() => { haptic.tap(); navigate({ name: "split", id: active.id }); }}>
++          <span className="split-card-top">
++            <span className="split-badge">{t("split_active_badge")}</span>
++          </span>
++          <span className="split-card-name">{dayName(active, t)}</span>
++          <span className="muted small">{splitDescription(active, t)}</span>
++          <span className="split-card-meta">{t("split_meta", { n: active.exercises.length, min: active.minutes })}</span>
++        </button>
++      )}
++
++      {others.length > 0 && (
++        <>
++          <h2 className="section-label">{t("splits_other")}</h2>
++          <div className="rows">
++            {others.map((s) => (
++              <button key={s.id} type="button" className="split-row"
++                      onClick={() => { haptic.tap(); navigate({ name: "split", id: s.id }); }}>
++                <span className="exercise-text">
++                  <span className="exercise-name">{dayName(s, t)}</span>
++                  <span className="exercise-meta">{t("split_meta", { n: s.exercises.length, min: s.minutes })}</span>
++                </span>
++                <ChevronRight />
++              </button>
++            ))}
++          </div>
++        </>
++      )}
++    </main>
++  );
++}
+diff --git a/miniapp/src/screens/TrainDay.tsx b/miniapp/src/screens/TrainDay.tsx
+index 36e0335..0836339 100644
+--- a/miniapp/src/screens/TrainDay.tsx
++++ b/miniapp/src/screens/TrainDay.tsx
+@@ -1,20 +1,20 @@
+ /*
+- * Train tab: the workout-day screen. Pick a day of the current program (the next
++ * Train > active split session (/workout/session): the workout-day screen. Pick a day of the current program (the next
+  * one is preselected), see its exercises with last time's numbers and the session
+  * load, then Start. With a workout in progress it shows the statuses
+- * (done / now / next) and a Continue button. Links to the exercise library.
++ * (done / now / next) and a Continue button.
+  */
+ import { useCallback, useEffect, useState } from "react";
+ import { getTrain, startWorkout, trainErrorKey, type TrainOverview } from "../lib/trainApi";
+ import { dayName } from "../lib/planText";
+ import { fmtSets, repRange } from "../lib/trainText";
+-import { navigate } from "../lib/router";
++import { goBack, navigate } from "../lib/router";
+ import { bindNativeBack, haptic } from "../lib/telegram";
+ import { markFreshStart } from "../lib/guidedSession";
+ import type { TextKey } from "../i18n";
+ import { EnergyBar } from "../components/EnergyBar";
+ import { ExerciseImage } from "../components/ExerciseImage";
+-import { Search } from "../components/Icons";
++import { BackHeader } from "./Splits";
+ import "./plan.css";
+ import "./train.css";
+ 
+@@ -37,7 +37,8 @@ export function TrainDay({ t }: { t: T }) {
+       .catch((e) => setError(trainErrorKey(e)));
+   }, []);
+   useEffect(load, [load]);
+-  useEffect(() => bindNativeBack(null), []); // a tab: no Back button
++  const back = () => goBack({ name: "workout" });
++  useEffect(() => bindNativeBack(back), []); // eslint-disable-line react-hooks/exhaustive-deps
+ 
+   async function start(force: boolean) {
+     if (busy || selected === null) return;
+@@ -62,13 +63,7 @@ export function TrainDay({ t }: { t: T }) {
+ 
+   return (
+     <main className="train">
+-      <div className="train-head">
+-        <h1 className="screen-title left">{t("train_title")}</h1>
+-        <button type="button" className="button-secondary button-small"
+-                onClick={() => { haptic.tap(); navigate({ name: "library" }); }}>
+-          <Search />{t("train_library")}
+-        </button>
+-      </div>
++      <BackHeader title={t("train_session")} t={t} onBack={back} />
+ 
+       {error && (
+         <section className="card center" role="alert">
+diff --git a/miniapp/src/screens/TrainHome.tsx b/miniapp/src/screens/TrainHome.tsx
+new file mode 100644
+index 0000000..a4f058f
+--- /dev/null
++++ b/miniapp/src/screens/TrainHome.tsx
+@@ -0,0 +1,77 @@
++/*
++ * Train tab home: two big cards, Splits and All exercises, plus a shortcut to the
++ * active split's session (or the workout in progress).
++ */
++import { useCallback, useEffect, useState } from "react";
++import { getSplits, trainErrorKey, type SplitList } from "../lib/trainApi";
++import { dayName } from "../lib/planText";
++import { navigate } from "../lib/router";
++import { bindNativeBack, haptic } from "../lib/telegram";
++import type { TextKey } from "../i18n";
++import { ChevronRight, Dumbbell, Search } from "../components/Icons";
++import { Calendar } from "../components/PlanIcons";
++import "./plan.css";
++import "./train.css";
++
++type T = (key: TextKey, vars?: Record<string, string | number>) => string;
++
++export function TrainHome({ t }: { t: T }) {
++  const [data, setData] = useState<SplitList | null>(null);
++  const [error, setError] = useState<TextKey | null>(null);
++
++  const load = useCallback(() => {
++    setError(null);
++    getSplits().then(setData).catch((e) => setError(trainErrorKey(e)));
++  }, []);
++  useEffect(load, [load]);
++  useEffect(() => bindNativeBack(null), []); // a tab: no Back button
++
++  const active = data?.splits.find((s) => s.active) ?? null;
++
++  return (
++    <main className="train">
++      <h1 className="screen-title left">{t("train_title")}</h1>
++
++      <div className="train-home-cards">
++        <button type="button" className="train-home-card" onClick={() => { haptic.tap(); navigate({ name: "splits" }); }}>
++          <span className="train-home-icon"><Calendar /></span>
++          <span className="train-home-text">
++            <span className="train-home-title">{t("train_splits")}</span>
++            <span className="muted small">{t("train_splits_hint")}</span>
++          </span>
++          <ChevronRight />
++        </button>
++        <button type="button" className="train-home-card" onClick={() => { haptic.tap(); navigate({ name: "exercises" }); }}>
++          <span className="train-home-icon"><Search /></span>
++          <span className="train-home-text">
++            <span className="train-home-title">{t("train_all_exercises")}</span>
++            <span className="muted small">{t("train_all_exercises_hint")}</span>
++          </span>
++          <ChevronRight />
++        </button>
++      </div>
++
++      {error && (
++        <section className="card center" role="alert">
++          <p>{t(error)}</p>
++          <button type="button" className="button-primary" onClick={load}>{t("retry")}</button>
++        </section>
++      )}
++      {!data && !error && <div className="spinner center-spinner" aria-label={t("loading")} />}
++
++      {data && active && (
++        <section className="card train-active split-active">
++          <p className="plan-eyebrow">{data.workout_active ? t("train_in_progress") : t("train_active_split")}</p>
++          <h2 className="plan-program-name">{dayName(active, t)}</h2>
++          <p className="muted small">
++            {t("split_meta", { n: active.exercises.length, min: active.minutes })}
++          </p>
++          <button type="button" className="button-primary"
++                  onClick={() => { haptic.tap(); navigate({ name: data.workout_active ? "workoutGuided" : "workoutSession" }); }}>
++            <Dumbbell />{data.workout_active ? t("train_continue") : t("train_open_session")}
++          </button>
++        </section>
++      )}
++    </main>
++  );
++}
+diff --git a/miniapp/src/screens/train.css b/miniapp/src/screens/train.css
+index 2cdb679..c38c327 100644
+--- a/miniapp/src/screens/train.css
++++ b/miniapp/src/screens/train.css
+@@ -231,3 +231,143 @@
+ .summary > .button-primary { width: 100%; margin: var(--space-2) 0 var(--space-4); }
+ 
+ .summary-xp { margin: 0; text-align: center; font-size: var(--font-size-h2); font-weight: var(--font-weight-bold); background: var(--gradient-accent); -webkit-background-clip: text; background-clip: text; color: transparent; }
++
++/* ---------- Train home, splits, all exercises ---------- */
++
++.train-sub-head { display: flex; align-items: center; gap: var(--space-3); min-height: 44px; }
++.train-sub-head .screen-title { margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
++
++.train-home-cards { display: flex; flex-direction: column; gap: var(--space-3); }
++.train-home-card,
++.split-row,
++.muscle-card,
++.split-card {
++  font: inherit;
++  color: var(--color-text);
++  text-align: left;
++  border: 0;
++  cursor: pointer;
++  -webkit-tap-highlight-color: transparent;
++  transition: transform var(--duration-base) var(--ease-out), background var(--duration-base) var(--ease-out);
++}
++.train-home-card:active, .split-row:active, .muscle-card:active, .split-card:active { transform: scale(0.98); background: var(--color-surface-raised); }
++
++.train-home-card {
++  display: flex;
++  align-items: center;
++  gap: var(--space-4);
++  min-height: 96px;
++  padding: var(--space-4);
++  border-radius: var(--radius-lg, 20px);
++  background: var(--color-surface);
++}
++.train-home-icon {
++  display: grid;
++  place-items: center;
++  flex: none;
++  width: 52px;
++  height: 52px;
++  border-radius: 50%;
++  background: var(--color-surface-sunken);
++  color: var(--color-lime);
++}
++.train-home-text { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
++.train-home-title { font-size: 18px; font-weight: var(--font-weight-bold); }
++.train-active .button-primary svg { margin-right: var(--space-2); vertical-align: -4px; }
++
++.split-active {
++  background:
++    linear-gradient(var(--color-surface), var(--color-surface)) padding-box,
++    var(--gradient-accent) border-box;
++  border: 1.5px solid transparent;
++}
++.split-card { display: flex; flex-direction: column; gap: var(--space-1); width: 100%; }
++.split-card-top { display: flex; }
++.split-card-name { font-size: 20px; font-weight: var(--font-weight-bold); }
++.split-card-meta { color: var(--color-mint); font-size: 13px; font-weight: var(--font-weight-semibold); }
++.split-badge {
++  display: inline-block;
++  align-self: flex-start;
++  padding: 2px var(--space-2);
++  border-radius: var(--radius-pill);
++  background: var(--gradient-accent);
++  color: var(--color-text-on-accent);
++  font-size: 11px;
++  font-weight: var(--font-weight-bold);
++  text-transform: uppercase;
++  letter-spacing: 0.04em;
++}
++.section-label { margin: var(--space-2) 0 0; font-size: 13px; color: var(--color-text-muted); font-weight: var(--font-weight-semibold); text-transform: uppercase; letter-spacing: 0.04em; }
++.split-row {
++  display: flex;
++  align-items: center;
++  gap: var(--space-3);
++  width: 100%;
++  min-height: 60px;
++  padding: var(--space-3) var(--space-4);
++  border-radius: var(--radius-md);
++  background: var(--color-surface);
++  color: var(--color-text-muted);
++}
++
++.split-desc { margin: var(--space-2) 0 var(--space-3); color: var(--color-text-muted); }
++.split-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); }
++.split-stats span { display: flex; flex-direction: column; align-items: center; padding: var(--space-2); border-radius: var(--radius-md); background: var(--color-surface-sunken); }
++.split-stats b { font-size: 20px; }
++.split-stats small { color: var(--color-text-muted); font-size: 12px; text-align: center; }
++.split-ex { width: 100%; min-height: 56px; font: inherit; text-align: left; cursor: pointer; }
++.split-detail { padding-bottom: 96px; }
++.split-footer {
++  position: sticky;
++  bottom: calc(var(--safe-bottom) + 64px + var(--space-3) + var(--space-2));
++  padding-top: var(--space-2);
++}
++.split-footer .button-primary { width: 100%; min-height: 52px; }
++
++.segmented {
++  display: grid;
++  grid-template-columns: 1fr 1fr;
++  gap: 4px;
++  padding: 4px;
++  border-radius: var(--radius-pill);
++  background: var(--color-surface-sunken);
++}
++.segment {
++  min-height: 44px;
++  padding: 0 var(--space-2);
++  border: 0;
++  border-radius: var(--radius-pill);
++  background: transparent;
++  color: var(--color-text-muted);
++  font: inherit;
++  font-size: 14px;
++  font-weight: var(--font-weight-semibold);
++  cursor: pointer;
++}
++.segment-on { background: var(--gradient-accent); color: var(--color-text-on-accent); }
++
++.muscle-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
++.muscle-card {
++  display: flex;
++  flex-direction: column;
++  align-items: center;
++  gap: var(--space-1);
++  min-height: 44px;
++  padding: var(--space-3) var(--space-2) var(--space-3);
++  border-radius: var(--radius-md);
++  background: var(--color-surface);
++}
++.muscle-name { font-weight: var(--font-weight-semibold); text-align: center; }
++.muscle-image {
++  display: block;
++  width: 100%;
++  aspect-ratio: 1 / 1;
++  border-radius: var(--radius-md);
++  overflow: hidden;
++  background: var(--color-surface-sunken);
++}
++.muscle-image img { display: block; width: 100%; height: 100%; object-fit: contain; }
++.muscle-placeholder { display: grid; place-items: center; width: 100%; height: 100%; color: var(--color-text-subtle); }
++.muscle-placeholder svg { width: 40%; height: 40%; }
++.muscle-hero { width: 50%; max-width: 200px; margin: 0 auto; }
++.search input { min-height: 44px; }
+diff --git a/services/train.py b/services/train.py
+index 29666ee..0f6602c 100644
+--- a/services/train.py
++++ b/services/train.py
+@@ -72,6 +72,31 @@ def _block(exercise: Exercise, sets: int, timed: bool) -> energy.SetBlock:
+ 
+ # ---------- workout-day screen ----------
+ 
++async def _day_dict(session: AsyncSession, user: User, catalog: dict[str, Exercise], day,
++                    image_for: ImageFor) -> dict:
++    """One plan day (a "split" in the app) with its exercises and last time's numbers."""
++    exercises, blocks, sets_by_muscle = [], [], {}
++    for entry in sorted(day.exercises, key=lambda e: e.position):
++        ex = await _exercise(session, catalog, entry.exercise_id)
++        past = await workouts.history(session, user, entry.exercise_id, limit=1)
++        blocks.append(_block(ex, entry.sets, entry.timed))
++        sets_by_muscle[ex.muscle_group] = sets_by_muscle.get(ex.muscle_group, 0) + entry.sets
++        exercises.append({
++            "exercise_id": ex.id, "name": ex.name, "muscle_group": ex.muscle_group,
++            "equipment": ex.equipment, "image": image_for(ex.id), "sets": entry.sets, "rep_min": entry.rep_min,
++            "rep_max": entry.rep_max, "timed": entry.timed, "rest_seconds": entry.rest_seconds,
++            "last": [{"weight_kg": s.weight_kg, "reps": s.reps} for s in (past[0] if past else [])],
++        })
++    return {
++        "id": day.id, "index": day.day_index, "name_key": day.name_key, "suffix": day.suffix,
++        "title": day.title,
++        "minutes": rules.estimate_minutes((e.sets, e.rep_max, e.timed, e.rest_seconds) for e in day.exercises),
++        "energy": energy.session_load(blocks).as_dict(), "exercises": exercises,
++        # Primary muscles, most sets first (the app builds the split's description from them).
++        "muscles": sorted(sets_by_muscle, key=lambda m: -sets_by_muscle[m]),
++    }
++
++
+ async def overview(session: AsyncSession, user: User, image_for: ImageFor,
+                    media_for: MediaFor | None = None) -> dict:
+     """The active workout (if any), and every day of the current program with last time's numbers."""
+@@ -80,25 +105,8 @@ async def overview(session: AsyncSession, user: User, image_for: ImageFor,
+     active = await workouts.get_active(session, user)
+     _program, plan = await programs.ensure_current(session, user)
+     catalog = await load_catalog(session)
+-    days = []
+-    for day in sorted(plan.days, key=lambda d: d.day_index):
+-        exercises, blocks = [], []
+-        for entry in sorted(day.exercises, key=lambda e: e.position):
+-            ex = await _exercise(session, catalog, entry.exercise_id)
+-            past = await workouts.history(session, user, entry.exercise_id, limit=1)
+-            blocks.append(_block(ex, entry.sets, entry.timed))
+-            exercises.append({
+-                "exercise_id": ex.id, "name": ex.name, "muscle_group": ex.muscle_group,
+-                "equipment": ex.equipment, "image": image_for(ex.id), "sets": entry.sets, "rep_min": entry.rep_min,
+-                "rep_max": entry.rep_max, "timed": entry.timed, "rest_seconds": entry.rest_seconds,
+-                "last": [{"weight_kg": s.weight_kg, "reps": s.reps} for s in (past[0] if past else [])],
+-            })
+-        days.append({
+-            "id": day.id, "index": day.day_index, "name_key": day.name_key, "suffix": day.suffix,
+-            "title": day.title,
+-            "minutes": rules.estimate_minutes((e.sets, e.rep_max, e.timed, e.rest_seconds) for e in day.exercises),
+-            "energy": energy.session_load(blocks).as_dict(), "exercises": exercises,
+-        })
++    days = [await _day_dict(session, user, catalog, day, image_for)
++            for day in sorted(plan.days, key=lambda d: d.day_index)]
+     return {
+         "active": await workout_view(session, user, active, image_for, media_for) if active else None,
+         "next_index": await workouts.next_day_index(session, user, plan),
+@@ -106,6 +114,41 @@ async def overview(session: AsyncSession, user: User, image_for: ImageFor,
+     }
+ 
+ 
++# ---------- splits (Train > Splits) ----------
++# A "split" in the app is one day of the current program (Push A, Pull A...). The active
++# split is the one the next workout uses: chosen by the user, or the next in rotation.
++
++async def splits(session: AsyncSession, user: User, image_for: ImageFor) -> dict:
++    """Every split of the current program; the active one is flagged (and listed first by the app)."""
++    data = await overview(session, user, image_for)
++    active_index = data["next_index"]
++    items = [{**d, "active": d["index"] == active_index} for d in data["days"]]
++    return {"active_index": active_index, "splits": items,
++            "workout_active": data["active"] is not None}
++
++
++async def split(session: AsyncSession, user: User, split_id: int, image_for: ImageFor) -> dict:
++    found = next((s for s in (await splits(session, user, image_for))["splits"] if s["id"] == split_id), None)
++    if found is None:
++        raise TrainError("no_split", 404)
++    return found
++
++
++async def choose_split(session: AsyncSession, user: User, split_id: int, image_for: ImageFor) -> dict:
++    """Make this split the active one (the next workout starts it). Saved on the plan."""
++    if user.profile is None:
++        raise TrainError("profile_required")
++    _program, plan = await programs.ensure_current(session, user)
++    day = next((d for d in plan.days if d.id == split_id), None)
++    if day is None:
++        raise TrainError("no_split", 404)
++    if not day.exercises:
++        raise TrainError("bad_day", 422)
++    plan.active_day_index = day.day_index
++    await session.commit()
++    return await splits(session, user, image_for)
++
++
+ # ---------- live logger ----------
+ 
+ async def workout_view(session: AsyncSession, user: User, ws: WorkoutSession, image_for: ImageFor,
+diff --git a/services/workouts.py b/services/workouts.py
+index 7754f77..58b22df 100644
+--- a/services/workouts.py
++++ b/services/workouts.py
+@@ -152,6 +152,9 @@ async def next_day_index(session: AsyncSession, user: User, plan: WorkoutPlan) -
+                WorkoutSession.day_index.is_not(None))
+         .order_by(WorkoutSession.finished_at.desc(), WorkoutSession.id.desc())
+     )
++    chosen = getattr(plan, "active_day_index", None)
++    if chosen is not None and 0 <= chosen < len(plan.days):
++        return chosen  # the split the user chose in Train > Splits
+     if last is None or not plan.days:
+         return 0
+     return (last + 1) % len(plan.days)
+@@ -375,6 +378,11 @@ async def finish(session: AsyncSession, user: User, ws: WorkoutSession) -> Worko
+         return None
+ 
+     ws.finished_at = utcnow()
++    # A split chosen in Train > Splits counts as done once its workout is finished;
++    # after that the normal rotation continues from it.
++    plan = await session.scalar(select(WorkoutPlan).where(WorkoutPlan.user_id == user.id))
++    if plan is not None and plan.active_day_index is not None and plan.active_day_index == ws.day_index:
++        plan.active_day_index = None
+     await session.commit()
+ 
+     working = [s for s in ws.sets if not s.warmup]
+diff --git a/tests/test_api_train.py b/tests/test_api_train.py
+index 8e90ef6..ecebc4a 100644
+--- a/tests/test_api_train.py
++++ b/tests/test_api_train.py
+@@ -124,3 +124,35 @@ async def test_substitute_discard_and_privacy(client):
+     empty = await call(client, "post", "/api/workouts", {"day_index": 1, "force": True}, status=201)
+     assert await call(client, "post", f"/api/workouts/{empty['id']}/finish") == {"discarded": True}
+     await call(client, "get", f"/api/workouts/{empty['id']}", status=404)
++
++
++async def test_splits_choose_and_muscles(client):
++    listed = await call(client, "get", "/api/splits")
++    splits = listed["splits"]
++    assert len(splits) >= 2 and listed["active_index"] == 0
++    assert [s["active"] for s in splits].count(True) == 1 and splits[0]["active"]
++    second = splits[1]
++    assert second["muscles"] and second["energy"]["hard_sets"] > 0
++
++    one = await call(client, "get", f"/api/splits/{second['id']}")
++    assert one["id"] == second["id"] and not one["active"]
++    await call(client, "get", "/api/splits/999999", status=404)
++
++    chosen = await call(client, "post", f"/api/splits/{second['id']}/activate")
++    assert chosen["active_index"] == second["index"]
++    assert (await call(client, "get", "/api/train"))["next_index"] == second["index"]
++
++    # Finishing the chosen split hands back to the normal rotation (the day after it).
++    ws = await call(client, "post", "/api/workouts", {"day_index": second["index"]}, status=201)
++    await log(client, ws["id"], 0, 40, 8)
++    await call(client, "post", f"/api/workouts/{ws['id']}/finish")
++    after = await call(client, "get", "/api/splits")
++    assert after["active_index"] == (second["index"] + 1) % len(splits)
++
++    muscles = (await call(client, "get", "/api/exercises/muscles"))["items"]
++    keys = [m["key"] for m in muscles]
++    assert "chest" in keys and all(m["image"] == m["key"] + ".png" for m in muscles)
++    chest = await call(client, "get", "/api/exercises/muscles/chest")
++    assert chest["items"] and all(i["muscle_group"] == "chest" for i in chest["items"])
++    assert len(chest["items"]) == next(m["count"] for m in muscles if m["key"] == "chest")
++    assert (await call(client, "get", "/api/exercises/muscles/nope"))["items"] == []
+-- 
+2.43.0
+

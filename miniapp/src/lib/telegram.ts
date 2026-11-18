@@ -9,19 +9,32 @@
 type HapticImpact = "light" | "medium" | "heavy" | "rigid" | "soft";
 type HapticNotice = "error" | "success" | "warning";
 
+interface TelegramSafeArea {
+  top: number;
+  bottom: number;
+  left: number;
+  right: number;
+}
+
 interface TelegramWebApp {
   initData: string;
   initDataUnsafe: { user?: { id: number; first_name?: string; language_code?: string }; start_param?: string };
   version: string;
   platform: string;
+  isFullscreen?: boolean;
+  safeAreaInset?: TelegramSafeArea;
+  contentSafeAreaInset?: TelegramSafeArea;
   ready(): void;
   close(): void;
   expand(): void;
+  requestFullscreen?(): void;
   isVersionAtLeast(version: string): boolean;
   setHeaderColor(color: string): void;
   setBackgroundColor(color: string): void;
   setBottomBarColor?(color: string): void;
   disableVerticalSwipes?(): void;
+  onEvent?(event: string, callback: () => void): void;
+  offEvent?(event: string, callback: () => void): void;
   showConfirm?(message: string, callback: (confirmed: boolean) => void): void;
   BackButton: { show(): void; hide(): void; onClick(cb: () => void): void; offClick(cb: () => void): void };
   HapticFeedback: {
@@ -46,12 +59,20 @@ export function getInitData(): string {
   return getWebApp()?.initData ?? "";
 }
 
-/** Start-up: tell Telegram we're ready, use the full height, match our colours. */
+/** Start-up: tell Telegram we're ready, go full screen, match our colours. */
 export function initTelegram(): void {
   const app = getWebApp();
   if (!app) return;
   app.ready();
   app.expand();
+  // Bot API 8.0+: occupy the whole screen (the launch link may still force compact mode).
+  if (app.isVersionAtLeast("8.0")) {
+    try {
+      app.requestFullscreen?.();
+    } catch {
+      /* the bot has full-screen mode disabled in BotFather, or an older client */
+    }
+  }
   if (app.isVersionAtLeast("6.1")) {
     app.setHeaderColor("#151A18");
     app.setBackgroundColor("#151A18");
@@ -59,6 +80,36 @@ export function initTelegram(): void {
   if (app.isVersionAtLeast("7.10")) app.setBottomBarColor?.("#151A18");
   // Stop accidental swipe-down-to-close while scrolling lists and rulers.
   if (app.isVersionAtLeast("7.7")) app.disableVerticalSwipes?.();
+  syncSafeArea(app);
+  // The insets and viewport change when the app goes full screen or the device rotates.
+  if (app.onEvent) {
+    const update = () => syncSafeArea(app);
+    app.onEvent("fullscreenChanged", update);
+    app.onEvent("safeAreaChanged", update);
+    app.onEvent("contentSafeAreaChanged", update);
+    app.onEvent("viewportChanged", update);
+  }
+}
+
+/**
+ * Keep the layout under Telegram's UI (notch, status bar, floating close/menu
+ * buttons in full-screen mode). tokens.css falls back to the --tg-* variables.
+ */
+function syncSafeArea(app: TelegramWebApp): void {
+  const root = document.documentElement;
+  const safe = app.safeAreaInset;
+  const content = app.contentSafeAreaInset;
+  if (!safe) {
+    root.style.removeProperty("--app-safe-top");
+    root.style.removeProperty("--app-safe-bottom");
+    return;
+  }
+  const baseTop = Math.max(0, safe.top) + Math.max(0, content?.top ?? 0);
+  // Full screen hides Telegram's header, but its floating controls still overlay the top edge.
+  const top = app.isFullscreen ? Math.max(baseTop, 56) : baseTop;
+  const bottom = Math.max(0, safe.bottom) + Math.max(0, content?.bottom ?? 0);
+  root.style.setProperty("--app-safe-top", `${top}px`);
+  root.style.setProperty("--app-safe-bottom", `${bottom}px`);
 }
 
 /** Haptic feedback on key taps. Silently does nothing outside Telegram. */

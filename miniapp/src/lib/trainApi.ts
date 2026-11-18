@@ -129,6 +129,17 @@ export const getTrain = () => api<TrainOverview>("/api/train");
 export const getSplits = () => api<SplitList>("/api/splits");
 export const getSplit = (id: number) => api<Split>(`/api/splits/${id}`);
 export const chooseSplit = (id: number) => api<SplitList>(`/api/splits/${id}/activate`, { method: "POST" });
+
+export interface NewSplitExercise {
+  exercise_id: string;
+  sets: number;
+  rep_min: number;
+  rep_max: number;
+}
+
+/** Create a custom split; the answer is the whole updated split list. */
+export const createSplit = (name: string, exercises: NewSplitExercise[]) =>
+  api<SplitList>("/api/splits", { method: "POST", body: { name, exercises } });
 export const getMuscles = () => api<{ items: MuscleGroup[] }>("/api/exercises/muscles");
 export const getMuscleExercises = (key: string) =>
   api<ExerciseList>("/api/exercises/muscles/" + encodeURIComponent(key));
@@ -152,7 +163,8 @@ export const finishWorkout = (id: number) => api<Summary>(`/api/workouts/${id}/f
 const KNOWN = new Set([
   "workout_active", "workout_finished", "no_workout", "bad_day", "no_substitute", "swap_after_sets",
   "err_set_weight", "err_set_reps", "err_set_rpe", "err_bad_exercise", "err_no_set", "err_bad_group",
-  "profile_required", "no_split",
+  "profile_required", "no_split", "too_many_days", "too_many_exercises", "no_exercise",
+  "duplicate_exercise", "bad_name", "no_exercises", "bad_sets", "bad_reps",
 ]);
 
 export function trainErrorKey(error: unknown): TextKey {

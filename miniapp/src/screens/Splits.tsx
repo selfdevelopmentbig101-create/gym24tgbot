@@ -1,4 +1,4 @@
-/* Train > Splits: the active split on top (highlighted), every other split below. */
+/* Train > Splits: a 2-column grid of equal cards, the active split first, then "+ Add split". */
 import { useCallback, useEffect, useState } from "react";
 import { getSplits, trainErrorKey, type Split, type SplitList } from "../lib/trainApi";
 import { dayName } from "../lib/planText";
@@ -6,11 +6,14 @@ import { goBack, navigate } from "../lib/router";
 import { bindNativeBack, haptic } from "../lib/telegram";
 import { takeFlash } from "../lib/flash";
 import type { TextKey } from "../i18n";
-import { ArrowLeft, ChevronRight } from "../components/Icons";
+import { ArrowLeft } from "../components/Icons";
 import "./plan.css";
 import "./train.css";
 
 type T = (key: TextKey, vars?: Record<string, string | number>) => string;
+
+/** services/program_rules.py::MAX_DAYS: the program's days are the splits. */
+const MAX_SPLITS = 7;
 
 export function splitDescription(split: Split, t: T): string {
   const muscles = split.muscles.slice(0, 4).map((m) => t(("muscle_" + m) as TextKey));
@@ -46,8 +49,9 @@ export function Splits({ t }: { t: T }) {
     return () => clearTimeout(timer);
   }, [toast]);
 
-  const active = data?.splits.find((s) => s.active) ?? null;
-  const others = data?.splits.filter((s) => !s.active) ?? [];
+  // The active split comes first; Array.sort is stable, so the others keep their order.
+  const splits = data ? [...data.splits].sort((a, b) => Number(b.active) - Number(a.active)) : [];
+  const canAdd = splits.length < MAX_SPLITS;
 
   return (
     <main className="train">
@@ -61,35 +65,34 @@ export function Splits({ t }: { t: T }) {
         </section>
       )}
       {!data && !error && <div className="spinner center-spinner" aria-label={t("loading")} />}
-      {data && data.splits.length === 0 && <div className="empty"><p>{t("splits_empty")}</p></div>}
 
-      {active && (
-        <button type="button" className="card split-card split-active"
-                onClick={() => { haptic.tap(); navigate({ name: "split", id: active.id }); }}>
-          <span className="split-card-top">
-            <span className="split-badge">{t("split_active_badge")}</span>
-          </span>
-          <span className="split-card-name">{dayName(active, t)}</span>
-          <span className="muted small">{splitDescription(active, t)}</span>
-          <span className="split-card-meta">{t("split_meta", { n: active.exercises.length, min: active.minutes })}</span>
-        </button>
-      )}
-
-      {others.length > 0 && (
+      {data && (
         <>
-          <h2 className="section-label">{t("splits_other")}</h2>
-          <div className="rows">
-            {others.map((s) => (
-              <button key={s.id} type="button" className="split-row"
-                      onClick={() => { haptic.tap(); navigate({ name: "split", id: s.id }); }}>
-                <span className="exercise-text">
-                  <span className="exercise-name">{dayName(s, t)}</span>
-                  <span className="exercise-meta">{t("split_meta", { n: s.exercises.length, min: s.minutes })}</span>
+          <div className="splits-grid">
+            {splits.map((split) => (
+              <button key={split.id} type="button"
+                      className={"split-tile" + (split.active ? " split-tile-active" : "")}
+                      onClick={() => { haptic.tap(); navigate({ name: "split", id: split.id }); }}>
+                <span className="split-tile-top">
+                  {split.active && <span className="split-badge">{t("split_active_badge")}</span>}
                 </span>
-                <ChevronRight />
+                <span className="split-tile-name">{dayName(split, t)}</span>
+                <span className="split-tile-meta">
+                  {t("split_tile_exercises", { n: split.exercises.length })}
+                </span>
+                <span className="split-tile-minutes">{t("train_minutes", { n: split.minutes })}</span>
               </button>
             ))}
+            {canAdd && (
+              <button type="button" className="split-tile split-tile-add"
+                      onClick={() => { haptic.tap(); navigate({ name: "splitNew" }); }}>
+                <span className="split-add-plus" aria-hidden>+</span>
+                <span className="split-tile-add-label">{t("split_add")}</span>
+              </button>
+            )}
           </div>
+
+          {!canAdd && <p className="muted small">{t("splits_limit", { n: MAX_SPLITS })}</p>}
         </>
       )}
     </main>

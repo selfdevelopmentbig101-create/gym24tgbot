@@ -9,6 +9,19 @@ class StartIn(BaseModel):
     force: bool = Field(False, description="End an unfinished workout and start this one")
 
 
+class SplitExerciseIn(BaseModel):
+    exercise_id: str = Field(min_length=1, max_length=80)
+    sets: int = Field(3, ge=1, le=10)
+    rep_min: int = Field(8, ge=1, le=50)
+    rep_max: int = Field(12, ge=1, le=50)
+
+
+class SplitIn(BaseModel):
+    """A user-created split (POST /api/splits): name + the exercises in order."""
+    name: str = Field(min_length=1, max_length=30, description="Shown on the split card (trimmed)")
+    exercises: list[SplitExerciseIn] = Field(min_length=1, max_length=12)
+
+
 class SetIn(BaseModel):
     index: int = Field(ge=0, le=30, description="Exercise position in the workout")
     weight_kg: float = Field(ge=0, le=500, description="0 = bodyweight only")

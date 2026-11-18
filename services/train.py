@@ -9,11 +9,12 @@ from datetime import timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database.models import Exercise, SetLog, User, WorkoutSession
+from database.models import Exercise, PlanDay, SetLog, User, WorkoutSession
 from services import achievements, energy, levels, plans, programs, reminders, workouts
 from services import xp_config
 from services import program_rules as rules
-from services.exercises import load_catalog
+from services.exercises import UserFilter, load_catalog
+from services.plan_generator import prescription
 from services.progression import Suggestion
 
 logger = logging.getLogger(__name__)
@@ -146,6 +147,51 @@ async def choose_split(session: AsyncSession, user: User, split_id: int, image_f
         raise TrainError("bad_day", 422)
     plan.active_day_index = day.day_index
     await session.commit()
+    return await splits(session, user, image_for)
+
+
+async def create_split(session: AsyncSession, user: User, name: str,
+                       exercises: list[dict], image_for: ImageFor) -> dict:
+    """Add a user-made split (a plan day) with only the exercises the user picked."""
+    if user.profile is None:
+        raise TrainError("profile_required")
+    title = (name or "").strip()
+    if not title or len(title) > 30:
+        raise TrainError("bad_name", 422)
+    if not exercises:
+        raise TrainError("no_exercises", 422)
+    if len(exercises) > rules.MAX_EXERCISES_PER_DAY:
+        raise TrainError("too_many_exercises", 422)
+
+    program, plan = await programs.ensure_current(session, user)
+    if len(plan.days) >= rules.MAX_DAYS:
+        raise TrainError("too_many_days")
+    catalog = await load_catalog(session)
+    experience = UserFilter.from_profile(user.profile).experience
+
+    entries, seen = [], set()
+    for item in exercises:
+        exercise = catalog.get(item["exercise_id"])
+        if exercise is None:
+            raise TrainError("no_exercise", 404)
+        if exercise.id in seen:
+            raise TrainError("duplicate_exercise", 422)
+        seen.add(exercise.id)
+        base = rules.adjust_for_goal(prescription(exercise, experience), exercise, program.goal)
+        error = rules.check_prescription(item["sets"], item["rep_min"], item["rep_max"],
+                                         base.rest_seconds, False)
+        if error:
+            raise TrainError(error, 422)
+        entries.append((exercise, item["sets"], item["rep_min"], item["rep_max"], base.rest_seconds))
+
+    # Custom splits use ordinary reps (the create screen asks for sets × reps).
+    day = PlanDay(day_index=len(plan.days), name_key="full_body", suffix="", title=title)
+    for position, (exercise, sets, rep_min, rep_max, rest) in enumerate(entries):
+        day.exercises.append(plans.make_entry(position, exercise, sets, rep_min, rep_max, False, rest))
+    plan.days.append(day)
+    program.workouts_per_week = len(plan.days)
+    await session.commit()
+    logger.info("Custom split created")
     return await splits(session, user, image_for)
 
 

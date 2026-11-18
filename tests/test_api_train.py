@@ -126,6 +126,41 @@ async def test_substitute_discard_and_privacy(client):
     await call(client, "get", f"/api/workouts/{empty['id']}", status=404)
 
 
+async def test_create_split(client):
+    listed = await call(client, "get", "/api/splits")
+    before = len(listed["splits"])
+    source = listed["splits"][0]["exercises"][:2]
+    body = {"name": "  My Push  ", "exercises": [
+        {"exercise_id": item["exercise_id"], "sets": 4, "rep_min": 10, "rep_max": 12}
+        for item in source]}
+
+    made = await call(client, "post", "/api/splits", body, status=201)
+    assert len(made["splits"]) == before + 1
+    new = made["splits"][-1]
+    assert new["title"] == "My Push" and new["name_key"] == "full_body" and not new["active"]
+    assert [(e["exercise_id"], e["sets"], e["rep_min"], e["rep_max"], e["timed"])
+            for e in new["exercises"]] == [
+        (item["exercise_id"], 4, 10, 12, False) for item in source]
+    assert new["minutes"] > 0 and new["exercises"][0]["last"] == []
+
+    # The new split is usable right away (and appears in the Train overview).
+    detail = await call(client, "get", f"/api/splits/{new['id']}")
+    assert detail["id"] == new["id"]
+    overview = await call(client, "get", "/api/train")
+    assert any(day["id"] == new["id"] for day in overview["days"])
+
+    # Name and exercise validation.
+    exercise = {"exercise_id": source[0]["exercise_id"], "sets": 3, "rep_min": 8, "rep_max": 12}
+    await call(client, "post", "/api/splits", {"name": "   ", "exercises": [exercise]}, status=422)
+    await call(client, "post", "/api/splits", {"name": "X", "exercises": []}, status=422)
+    await call(client, "post", "/api/splits",
+               {"name": "X", "exercises": [exercise, exercise]}, status=422)
+    await call(client, "post", "/api/splits", {"name": "X", "exercises": [
+               {**exercise, "exercise_id": "nope"}]}, status=404)
+    await call(client, "post", "/api/splits", {"name": "X", "exercises": [
+               {**exercise, "sets": 99}]}, status=422)
+
+
 async def test_splits_choose_and_muscles(client):
     listed = await call(client, "get", "/api/splits")
     splits = listed["splits"]

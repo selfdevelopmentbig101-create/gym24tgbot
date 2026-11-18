@@ -10,6 +10,7 @@
  *   /workout               Train tab home: two cards, Splits and All exercises
  *   /workout/session       session view of the active split (load, exercises, Start)
  *   /workout/splits        all splits, the active one on top
+ *   /workout/splits/new    create a split (name + exercises + sets/reps)
  *   /workout/splits/{id}   split detail with "Choose this split"
  *   /workout/exercises     All exercises: by muscle (2-column grid) or the whole list
  *   /workout/exercises/muscle/{key}   exercises of one muscle
@@ -32,6 +33,7 @@ export type Route =
   | { name: "workout" }
   | { name: "workoutSession" }
   | { name: "splits" }
+  | { name: "splitNew" }
   | { name: "split"; id: number }
   | { name: "exercises" }
   | { name: "muscle"; key: string }
@@ -52,6 +54,7 @@ export function parse(path: string): Route {
     if (parts[1] === "go") return { name: "workoutGuided" };
     if (parts[1] === "session") return { name: "workoutSession" };
     if (parts[1] === "splits") {
+      if (parts[2] === "new") return { name: "splitNew" };
       const id = Number(parts[2]);
       return Number.isInteger(id) && id > 0 ? { name: "split", id } : { name: "splits" };
     }
@@ -88,6 +91,7 @@ export function pathOf(route: Route): string {
     case "workoutGuided": return "/workout/go";
     case "workoutSession": return "/workout/session";
     case "splits": return "/workout/splits";
+    case "splitNew": return "/workout/splits/new";
     case "split": return "/workout/splits/" + route.id;
     case "exercises": return "/workout/exercises";
     case "muscle": return "/workout/exercises/muscle/" + encodeURIComponent(route.key);

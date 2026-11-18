@@ -4,6 +4,7 @@ Stage 5: the Train tab (workout-day screen and live logger).
     GET    /api/train                                    active workout + every program day (last time's numbers)
     GET    /api/splits                                   every split (program day), the active one flagged
     GET    /api/splits/{id}                              one split: exercises, minutes, hard sets, muscles
+    POST   /api/splits                                   create a split (name + chosen exercises)
     POST   /api/splits/{id}/activate                     make it the active split (the next workout)
     POST   /api/workouts                                 start a plan day (409 workout_active unless force)
     GET    /api/workouts/{id}                            live state
@@ -21,7 +22,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.deps import get_session, get_user
-from api.schemas_train import ItemPatch, SetIn, SetPatch, StartIn
+from api.schemas_train import ItemPatch, SetIn, SetPatch, SplitIn, StartIn
 from database.models import User
 from services import library, train, workouts
 from services.programs import ProgramError
@@ -76,6 +77,14 @@ async def list_splits(request: Request, user: User = Depends(get_user),
 async def get_split(split_id: int, request: Request, user: User = Depends(get_user),
                     session: AsyncSession = Depends(get_session)) -> dict:
     return await _guard(train.split(session, user, split_id, _images(request)))
+
+
+@router.post("/splits", status_code=201)
+async def create_split(body: SplitIn, request: Request, user: User = Depends(get_user),
+                       session: AsyncSession = Depends(get_session)) -> dict:
+    return await _guard(train.create_split(session, user, body.name,
+                                           [item.model_dump() for item in body.exercises],
+                                           _images(request)))
 
 
 @router.post("/splits/{split_id}/activate")

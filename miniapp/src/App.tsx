@@ -9,7 +9,7 @@
  *     /plan/programs[/new]  all programs, create a program
  *     /workout              Train home: Splits and All exercises
  *     /workout/session      session of the active split (statuses, last time's numbers, Start)
- *     /workout/splits[/{id}]  splits (active on top), split detail with "Choose this split"
+ *     /workout/splits[/{id}]  splits grid (active first) and "+ Add split", split detail
  *     /workout/exercises[/muscle/{key}]  by muscle (grid) or all (search); one muscle's exercises
  *     /workout/live         live logger (rest timer, supersets, notes, PRs, finish summary)
  *     /workout/go           guided workout (countdown, exercise screen, rest timer, summary)
@@ -33,6 +33,7 @@ import { AllExercises } from "./screens/AllExercises";
 import { MuscleExercises } from "./screens/MuscleExercises";
 import { SplitDetail } from "./screens/SplitDetail";
 import { Splits } from "./screens/Splits";
+import { CreateSplit } from "./screens/CreateSplit";
 import { TrainHome } from "./screens/TrainHome";
 import { Logger } from "./screens/Logger";
 import { Profile } from "./screens/Profile";
@@ -134,6 +135,8 @@ export function App() {
       screen = <MuscleExercises key={route.key} muscle={route.key} t={t} />;
     } else if (route.name === "splits") {
       screen = <Splits t={t} />;
+    } else if (route.name === "splitNew") {
+      screen = <CreateSplit t={t} locale={locale} />;
     } else if (route.name === "split") {
       screen = <SplitDetail key={route.id} id={route.id} t={t} />;
     } else if (route.name === "workoutSession") {
