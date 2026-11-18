@@ -2,6 +2,9 @@
 Stage 5: the Train tab (workout-day screen and live logger).
 
     GET    /api/train                                    active workout + every program day (last time's numbers)
+    GET    /api/splits                                   every split (program day), the active one flagged
+    GET    /api/splits/{id}                              one split: exercises, minutes, hard sets, muscles
+    POST   /api/splits/{id}/activate                     make it the active split (the next workout)
     POST   /api/workouts                                 start a plan day (409 workout_active unless force)
     GET    /api/workouts/{id}                            live state
     POST   /api/workouts/{id}/sets                       log a set (kg, reps, optional RPE, warm-up)
@@ -61,6 +64,24 @@ async def _view(request: Request, user: User, session: AsyncSession, ws) -> dict
 async def overview(request: Request, user: User = Depends(get_user),
                    session: AsyncSession = Depends(get_session)) -> dict:
     return await _guard(train.overview(session, user, _images(request), _media(request)))
+
+
+@router.get("/splits")
+async def list_splits(request: Request, user: User = Depends(get_user),
+                      session: AsyncSession = Depends(get_session)) -> dict:
+    return await _guard(train.splits(session, user, _images(request)))
+
+
+@router.get("/splits/{split_id}")
+async def get_split(split_id: int, request: Request, user: User = Depends(get_user),
+                    session: AsyncSession = Depends(get_session)) -> dict:
+    return await _guard(train.split(session, user, split_id, _images(request)))
+
+
+@router.post("/splits/{split_id}/activate")
+async def activate_split(split_id: int, request: Request, user: User = Depends(get_user),
+                         session: AsyncSession = Depends(get_session)) -> dict:
+    return await _guard(train.choose_split(session, user, split_id, _images(request)))
 
 
 @router.post("/workouts", status_code=201)

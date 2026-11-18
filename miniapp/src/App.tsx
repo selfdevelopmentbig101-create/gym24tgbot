@@ -7,10 +7,13 @@
  *     /plan                 Plan: calendar, current program, details, weekly volume
  *     /plan/edit[/{day}]    split editor with the energy bar
  *     /plan/programs[/new]  all programs, create a program
- *     /workout              Train: workout-day screen (statuses, last time's numbers, Start)
+ *     /workout              Train home: Splits and All exercises
+ *     /workout/session      session of the active split (statuses, last time's numbers, Start)
+ *     /workout/splits[/{id}]  splits (active on top), split detail with "Choose this split"
+ *     /workout/exercises[/muscle/{key}]  by muscle (grid) or all (search); one muscle's exercises
  *     /workout/live         live logger (rest timer, supersets, notes, PRs, finish summary)
  *     /workout/go           guided workout (countdown, exercise screen, rest timer, summary)
- *     /train                exercise library
+ *     /train                All exercises (old bot link)
  *     /profile              Profile: character, level, XP, achievements, settings (Stage 6)
  *     /profile/edit         edit profile answers
  *     /exercise/{id}        exercise detail
@@ -26,7 +29,11 @@ import { haptic } from "./lib/telegram";
 import { translate, type TextKey } from "./i18n";
 import { TabBar } from "./components/TabBar";
 import { ExerciseDetail } from "./screens/ExerciseDetail";
-import { Library } from "./screens/Library";
+import { AllExercises } from "./screens/AllExercises";
+import { MuscleExercises } from "./screens/MuscleExercises";
+import { SplitDetail } from "./screens/SplitDetail";
+import { Splits } from "./screens/Splits";
+import { TrainHome } from "./screens/TrainHome";
 import { Logger } from "./screens/Logger";
 import { Profile } from "./screens/Profile";
 import { ProfileEdit } from "./screens/ProfileEdit";
@@ -121,8 +128,16 @@ export function App() {
 
   if (state.kind === "main") {
     let screen;
-    if (route.name === "library") {
-      screen = <Library t={t} hasProfile locale={locale} />;
+    if (route.name === "exercises") {
+      screen = <AllExercises t={t} locale={locale} />;
+    } else if (route.name === "muscle") {
+      screen = <MuscleExercises key={route.key} muscle={route.key} t={t} />;
+    } else if (route.name === "splits") {
+      screen = <Splits t={t} />;
+    } else if (route.name === "split") {
+      screen = <SplitDetail key={route.id} id={route.id} t={t} />;
+    } else if (route.name === "workoutSession") {
+      screen = <TrainDay t={t} />;
     } else if (route.name === "exercise") {
       screen = <ExerciseDetail id={route.id} t={t} attribution={state.config.attribution} />;
     } else if (route.name === "plan") {
@@ -134,7 +149,7 @@ export function App() {
     } else if (route.name === "programNew") {
       screen = <ProgramNew t={t} />;
     } else if (route.name === "workout") {
-      screen = <TrainDay t={t} />;
+      screen = <TrainHome t={t} />;
     } else if (route.name === "workoutLive") {
       screen = <Logger t={t} />;
     } else if (route.name === "workoutGuided") {

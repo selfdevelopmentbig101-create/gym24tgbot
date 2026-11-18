@@ -2,7 +2,7 @@
  * Stage 5 API client: workout-day screen and live logger.
  * Shapes match api/routes/train.py and services/train.py.
  */
-import { api, ApiError } from "./api";
+import { api, ApiError, type ExerciseList } from "./api";
 import type { TextKey } from "../i18n";
 import type { DayHead, EnergyLoad } from "./planApi";
 
@@ -93,6 +93,15 @@ export interface TrainDay extends DayHead {
   exercises: TrainDayExercise[];
 }
 
+export interface Split extends TrainDay {
+  muscles: string[];   // primary muscles, most sets first
+  active: boolean;     // the split the next workout uses
+}
+
+export interface SplitList { active_index: number; splits: Split[]; workout_active: boolean }
+
+export interface MuscleGroup { key: string; count: number; image: string }
+
 export interface TrainOverview { active: WorkoutView | null; next_index: number; days: TrainDay[] }
 
 export interface LogResult {
@@ -117,6 +126,14 @@ export interface Summary {
 export interface NewSet { index: number; weight_kg: number; reps: number; rpe: number | null; warmup: boolean }
 
 export const getTrain = () => api<TrainOverview>("/api/train");
+export const getSplits = () => api<SplitList>("/api/splits");
+export const getSplit = (id: number) => api<Split>(`/api/splits/${id}`);
+export const chooseSplit = (id: number) => api<SplitList>(`/api/splits/${id}/activate`, { method: "POST" });
+export const getMuscles = () => api<{ items: MuscleGroup[] }>("/api/exercises/muscles");
+export const getMuscleExercises = (key: string) =>
+  api<ExerciseList>("/api/exercises/muscles/" + encodeURIComponent(key));
+export const getAllExercises = () => api<ExerciseList>("/api/exercises");
+
 export const startWorkout = (dayIndex: number, force = false) =>
   api<WorkoutView>("/api/workouts", { method: "POST", body: { day_index: dayIndex, force } });
 export const logSet = (id: number, body: NewSet) =>
@@ -135,7 +152,7 @@ export const finishWorkout = (id: number) => api<Summary>(`/api/workouts/${id}/f
 const KNOWN = new Set([
   "workout_active", "workout_finished", "no_workout", "bad_day", "no_substitute", "swap_after_sets",
   "err_set_weight", "err_set_reps", "err_set_rpe", "err_bad_exercise", "err_no_set", "err_bad_group",
-  "profile_required",
+  "profile_required", "no_split",
 ]);
 
 export function trainErrorKey(error: unknown): TextKey {

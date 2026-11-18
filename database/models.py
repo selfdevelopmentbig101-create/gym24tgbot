@@ -153,6 +153,8 @@ class WorkoutPlan(Base):
         ForeignKey("users.id", ondelete="CASCADE"), unique=True, index=True
     )
     split: Mapped[str] = mapped_column(String(30))  # e.g. "full_body", "upper_lower"
+    # The split (plan day) chosen in Train > Splits; None = next day in rotation.
+    active_day_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     days: Mapped[list["PlanDay"]] = relationship(

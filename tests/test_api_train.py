@@ -124,3 +124,35 @@ async def test_substitute_discard_and_privacy(client):
     empty = await call(client, "post", "/api/workouts", {"day_index": 1, "force": True}, status=201)
     assert await call(client, "post", f"/api/workouts/{empty['id']}/finish") == {"discarded": True}
     await call(client, "get", f"/api/workouts/{empty['id']}", status=404)
+
+
+async def test_splits_choose_and_muscles(client):
+    listed = await call(client, "get", "/api/splits")
+    splits = listed["splits"]
+    assert len(splits) >= 2 and listed["active_index"] == 0
+    assert [s["active"] for s in splits].count(True) == 1 and splits[0]["active"]
+    second = splits[1]
+    assert second["muscles"] and second["energy"]["hard_sets"] > 0
+
+    one = await call(client, "get", f"/api/splits/{second['id']}")
+    assert one["id"] == second["id"] and not one["active"]
+    await call(client, "get", "/api/splits/999999", status=404)
+
+    chosen = await call(client, "post", f"/api/splits/{second['id']}/activate")
+    assert chosen["active_index"] == second["index"]
+    assert (await call(client, "get", "/api/train"))["next_index"] == second["index"]
+
+    # Finishing the chosen split hands back to the normal rotation (the day after it).
+    ws = await call(client, "post", "/api/workouts", {"day_index": second["index"]}, status=201)
+    await log(client, ws["id"], 0, 40, 8)
+    await call(client, "post", f"/api/workouts/{ws['id']}/finish")
+    after = await call(client, "get", "/api/splits")
+    assert after["active_index"] == (second["index"] + 1) % len(splits)
+
+    muscles = (await call(client, "get", "/api/exercises/muscles"))["items"]
+    keys = [m["key"] for m in muscles]
+    assert "chest" in keys and all(m["image"] == m["key"] + ".png" for m in muscles)
+    chest = await call(client, "get", "/api/exercises/muscles/chest")
+    assert chest["items"] and all(i["muscle_group"] == "chest" for i in chest["items"])
+    assert len(chest["items"]) == next(m["count"] for m in muscles if m["key"] == "chest")
+    assert (await call(client, "get", "/api/exercises/muscles/nope"))["items"] == []

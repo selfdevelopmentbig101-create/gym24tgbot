@@ -60,6 +60,29 @@ async def list_exercises(
     )
 
 
+@router.get("/muscles")
+async def muscle_groups(user: User = Depends(get_user), session: AsyncSession = Depends(get_session)) -> dict:
+    """Muscle groups (primary muscle of at least one exercise), in catalog order, with counts.
+    `image` is the anatomy picture's file name in miniapp/public/muscles/."""
+    catalog = list((await load_catalog(session)).values())
+    counts: dict[str, int] = {}
+    for ex in catalog:
+        counts[ex.muscle_group] = counts.get(ex.muscle_group, 0) + 1
+    return {"items": [{"key": m, "count": n, "image": f"{m}.png"} for m, n in counts.items()]}
+
+
+@router.get("/muscles/{muscle}", response_model=ExerciseList)
+async def exercises_by_muscle(muscle: str, request: Request, user: User = Depends(get_user),
+                              session: AsyncSession = Depends(get_session)) -> ExerciseList:
+    """Exercises whose PRIMARY muscle is this one (A-Z)."""
+    catalog = list((await load_catalog(session)).values())
+    user_filter = _user_filter(user)
+    found = sorted((ex for ex in catalog if ex.muscle_group == muscle), key=lambda ex: ex.name.lower())
+    return ExerciseList(items=[_item(ex, request, user_filter) for ex in found], total=len(found),
+                        muscles=[muscle], equipment=sorted({ex.equipment for ex in found}),
+                        difficulties=[d for d in DIFFICULTIES if any(ex.difficulty == d for ex in found)])
+
+
 # Declared before /{exercise_id}, so "media-report" isn't taken for an exercise id.
 @router.get("/media-report", response_model=MediaReport)
 async def media_report(request: Request, identity: TelegramIdentity = Depends(get_identity),

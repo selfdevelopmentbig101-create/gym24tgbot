@@ -152,6 +152,9 @@ async def next_day_index(session: AsyncSession, user: User, plan: WorkoutPlan) -
                WorkoutSession.day_index.is_not(None))
         .order_by(WorkoutSession.finished_at.desc(), WorkoutSession.id.desc())
     )
+    chosen = getattr(plan, "active_day_index", None)
+    if chosen is not None and 0 <= chosen < len(plan.days):
+        return chosen  # the split the user chose in Train > Splits
     if last is None or not plan.days:
         return 0
     return (last + 1) % len(plan.days)
@@ -375,6 +378,11 @@ async def finish(session: AsyncSession, user: User, ws: WorkoutSession) -> Worko
         return None
 
     ws.finished_at = utcnow()
+    # A split chosen in Train > Splits counts as done once its workout is finished;
+    # after that the normal rotation continues from it.
+    plan = await session.scalar(select(WorkoutPlan).where(WorkoutPlan.user_id == user.id))
+    if plan is not None and plan.active_day_index is not None and plan.active_day_index == ws.day_index:
+        plan.active_day_index = None
     await session.commit()
 
     working = [s for s in ws.sets if not s.warmup]

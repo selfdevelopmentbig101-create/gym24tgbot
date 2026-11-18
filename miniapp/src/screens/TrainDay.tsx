@@ -1,20 +1,20 @@
 /*
- * Train tab: the workout-day screen. Pick a day of the current program (the next
+ * Train > active split session (/workout/session): the workout-day screen. Pick a day of the current program (the next
  * one is preselected), see its exercises with last time's numbers and the session
  * load, then Start. With a workout in progress it shows the statuses
- * (done / now / next) and a Continue button. Links to the exercise library.
+ * (done / now / next) and a Continue button.
  */
 import { useCallback, useEffect, useState } from "react";
 import { getTrain, startWorkout, trainErrorKey, type TrainOverview } from "../lib/trainApi";
 import { dayName } from "../lib/planText";
 import { fmtSets, repRange } from "../lib/trainText";
-import { navigate } from "../lib/router";
+import { goBack, navigate } from "../lib/router";
 import { bindNativeBack, haptic } from "../lib/telegram";
 import { markFreshStart } from "../lib/guidedSession";
 import type { TextKey } from "../i18n";
 import { EnergyBar } from "../components/EnergyBar";
 import { ExerciseImage } from "../components/ExerciseImage";
-import { Search } from "../components/Icons";
+import { BackHeader } from "./Splits";
 import "./plan.css";
 import "./train.css";
 
@@ -37,7 +37,8 @@ export function TrainDay({ t }: { t: T }) {
       .catch((e) => setError(trainErrorKey(e)));
   }, []);
   useEffect(load, [load]);
-  useEffect(() => bindNativeBack(null), []); // a tab: no Back button
+  const back = () => goBack({ name: "workout" });
+  useEffect(() => bindNativeBack(back), []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function start(force: boolean) {
     if (busy || selected === null) return;
@@ -62,13 +63,7 @@ export function TrainDay({ t }: { t: T }) {
 
   return (
     <main className="train">
-      <div className="train-head">
-        <h1 className="screen-title left">{t("train_title")}</h1>
-        <button type="button" className="button-secondary button-small"
-                onClick={() => { haptic.tap(); navigate({ name: "library" }); }}>
-          <Search />{t("train_library")}
-        </button>
-      </div>
+      <BackHeader title={t("train_session")} t={t} onBack={back} />
 
       {error && (
         <section className="card center" role="alert">

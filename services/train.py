@@ -72,6 +72,31 @@ def _block(exercise: Exercise, sets: int, timed: bool) -> energy.SetBlock:
 
 # ---------- workout-day screen ----------
 
+async def _day_dict(session: AsyncSession, user: User, catalog: dict[str, Exercise], day,
+                    image_for: ImageFor) -> dict:
+    """One plan day (a "split" in the app) with its exercises and last time's numbers."""
+    exercises, blocks, sets_by_muscle = [], [], {}
+    for entry in sorted(day.exercises, key=lambda e: e.position):
+        ex = await _exercise(session, catalog, entry.exercise_id)
+        past = await workouts.history(session, user, entry.exercise_id, limit=1)
+        blocks.append(_block(ex, entry.sets, entry.timed))
+        sets_by_muscle[ex.muscle_group] = sets_by_muscle.get(ex.muscle_group, 0) + entry.sets
+        exercises.append({
+            "exercise_id": ex.id, "name": ex.name, "muscle_group": ex.muscle_group,
+            "equipment": ex.equipment, "image": image_for(ex.id), "sets": entry.sets, "rep_min": entry.rep_min,
+            "rep_max": entry.rep_max, "timed": entry.timed, "rest_seconds": entry.rest_seconds,
+            "last": [{"weight_kg": s.weight_kg, "reps": s.reps} for s in (past[0] if past else [])],
+        })
+    return {
+        "id": day.id, "index": day.day_index, "name_key": day.name_key, "suffix": day.suffix,
+        "title": day.title,
+        "minutes": rules.estimate_minutes((e.sets, e.rep_max, e.timed, e.rest_seconds) for e in day.exercises),
+        "energy": energy.session_load(blocks).as_dict(), "exercises": exercises,
+        # Primary muscles, most sets first (the app builds the split's description from them).
+        "muscles": sorted(sets_by_muscle, key=lambda m: -sets_by_muscle[m]),
+    }
+
+
 async def overview(session: AsyncSession, user: User, image_for: ImageFor,
                    media_for: MediaFor | None = None) -> dict:
     """The active workout (if any), and every day of the current program with last time's numbers."""
@@ -80,30 +105,48 @@ async def overview(session: AsyncSession, user: User, image_for: ImageFor,
     active = await workouts.get_active(session, user)
     _program, plan = await programs.ensure_current(session, user)
     catalog = await load_catalog(session)
-    days = []
-    for day in sorted(plan.days, key=lambda d: d.day_index):
-        exercises, blocks = [], []
-        for entry in sorted(day.exercises, key=lambda e: e.position):
-            ex = await _exercise(session, catalog, entry.exercise_id)
-            past = await workouts.history(session, user, entry.exercise_id, limit=1)
-            blocks.append(_block(ex, entry.sets, entry.timed))
-            exercises.append({
-                "exercise_id": ex.id, "name": ex.name, "muscle_group": ex.muscle_group,
-                "equipment": ex.equipment, "image": image_for(ex.id), "sets": entry.sets, "rep_min": entry.rep_min,
-                "rep_max": entry.rep_max, "timed": entry.timed, "rest_seconds": entry.rest_seconds,
-                "last": [{"weight_kg": s.weight_kg, "reps": s.reps} for s in (past[0] if past else [])],
-            })
-        days.append({
-            "id": day.id, "index": day.day_index, "name_key": day.name_key, "suffix": day.suffix,
-            "title": day.title,
-            "minutes": rules.estimate_minutes((e.sets, e.rep_max, e.timed, e.rest_seconds) for e in day.exercises),
-            "energy": energy.session_load(blocks).as_dict(), "exercises": exercises,
-        })
+    days = [await _day_dict(session, user, catalog, day, image_for)
+            for day in sorted(plan.days, key=lambda d: d.day_index)]
     return {
         "active": await workout_view(session, user, active, image_for, media_for) if active else None,
         "next_index": await workouts.next_day_index(session, user, plan),
         "days": days,
     }
+
+
+# ---------- splits (Train > Splits) ----------
+# A "split" in the app is one day of the current program (Push A, Pull A...). The active
+# split is the one the next workout uses: chosen by the user, or the next in rotation.
+
+async def splits(session: AsyncSession, user: User, image_for: ImageFor) -> dict:
+    """Every split of the current program; the active one is flagged (and listed first by the app)."""
+    data = await overview(session, user, image_for)
+    active_index = data["next_index"]
+    items = [{**d, "active": d["index"] == active_index} for d in data["days"]]
+    return {"active_index": active_index, "splits": items,
+            "workout_active": data["active"] is not None}
+
+
+async def split(session: AsyncSession, user: User, split_id: int, image_for: ImageFor) -> dict:
+    found = next((s for s in (await splits(session, user, image_for))["splits"] if s["id"] == split_id), None)
+    if found is None:
+        raise TrainError("no_split", 404)
+    return found
+
+
+async def choose_split(session: AsyncSession, user: User, split_id: int, image_for: ImageFor) -> dict:
+    """Make this split the active one (the next workout starts it). Saved on the plan."""
+    if user.profile is None:
+        raise TrainError("profile_required")
+    _program, plan = await programs.ensure_current(session, user)
+    day = next((d for d in plan.days if d.id == split_id), None)
+    if day is None:
+        raise TrainError("no_split", 404)
+    if not day.exercises:
+        raise TrainError("bad_day", 422)
+    plan.active_day_index = day.day_index
+    await session.commit()
+    return await splits(session, user, image_for)
 
 
 # ---------- live logger ----------

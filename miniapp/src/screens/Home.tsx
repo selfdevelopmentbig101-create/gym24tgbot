@@ -116,7 +116,7 @@ export function Home({ t, name, locale }: { t: T; name: string; locale: string }
               {busy ? <span className="spinner spinner-small" /> : <><Dumbbell />{t("home_start")}</>}
             </button>
             <button type="button" className="button-link"
-                    onClick={() => { haptic.tap(); navigate({ name: "workout" }); }}>{t("home_see_day")}</button>
+                    onClick={() => { haptic.tap(); navigate({ name: "workoutSession" }); }}>{t("home_see_day")}</button>
           </div>
         </section>
       )}
@@ -186,7 +186,7 @@ export function Home({ t, name, locale }: { t: T; name: string; locale: string }
       )}
 
       <nav className="home-links" aria-label={t("home_links")}>
-        <button type="button" className="home-link" onClick={() => { haptic.tap(); navigate({ name: "library" }); }}>
+        <button type="button" className="home-link" onClick={() => { haptic.tap(); navigate({ name: "exercises" }); }}>
           <Search /><span>{t("home_link_library")}</span><ChevronRight />
         </button>
         <button type="button" className="home-link" onClick={() => { haptic.tap(); navigate({ name: "plan" }); }}>

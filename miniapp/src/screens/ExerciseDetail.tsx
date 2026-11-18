@@ -27,7 +27,7 @@ export function ExerciseDetail({ id, t, attribution }: { id: string; t: T; attri
     return () => { live = false; };
   }, [id]);
 
-  const back = () => goBack({ name: "library" });
+  const back = () => goBack({ name: "exercises" });
   useEffect(() => bindNativeBack(back), [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
