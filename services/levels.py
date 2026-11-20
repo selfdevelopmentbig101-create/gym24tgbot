@@ -16,8 +16,6 @@ from services import xp_config as cfg
 from services.body import aware
 from services.exercises import load_catalog
 
-LEVEL_KEYS = [key for key, _ in cfg.LEVELS]
-
 
 def level_index(xp: int) -> int:
     """The highest level whose XP threshold is reached."""
@@ -26,11 +24,6 @@ def level_index(xp: int) -> int:
         if xp >= needed:
             index = i
     return index
-
-
-def start_xp(experience: str) -> int:
-    key = cfg.START_LEVEL.get(experience, LEVEL_KEYS[0])
-    return dict(cfg.LEVELS)[key]
 
 
 def goal_weeks(days: list[date], goal: int, today: date) -> int:
@@ -120,8 +113,7 @@ async def level_view(session: AsyncSession, user: User) -> dict:
         .where(WorkoutSession.user_id == user.id, WorkoutSession.finished_at.is_not(None))))
     days = [reminders.local_now(settings, aware(dt)).date() for dt in finished]
     weeks = goal_weeks(days, stats.week_goal, today)
-    xp = start_xp(str(getattr(user.profile.experience, "value", user.profile.experience))) \
-        + earned_xp(stats.workouts, stats.prs, weeks)
+    xp = earned_xp(stats.workouts, stats.prs, weeks)
     level = make_level(xp)
 
     # Energy and mood from the workout in progress, or the last finished one.

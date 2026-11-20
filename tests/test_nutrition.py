@@ -1,12 +1,17 @@
+from datetime import date, timedelta
+
 import pytest
 
 from database.enums import Goal, Sex
 from services.nutrition import (
+    MAX_DEFICIT_KCAL,
     MAX_SURPLUS_KCAL,
     PROTEIN_MAX_G_PER_KG,
     PROTEIN_MIN_G_PER_KG,
     bmr_mifflin_st_jeor,
     calculate_targets,
+    estimate_goal_date,
+    target_weight_fits,
 )
 
 
@@ -67,3 +72,34 @@ def test_under_18_note():
     r = calculate_targets(weight_kg=60, height_cm=170, age=16, sex=Sex.MALE,
                           training_days=3, goal=Goal.LEAN_BULK)
     assert "note_under_18" in r.notes
+
+
+def test_weight_loss_goal_runs_a_deficit_and_loses_weight():
+    r = calculate_targets(weight_kg=80, height_cm=170, age=30, sex=Sex.FEMALE,
+                          training_days=3, goal=Goal.LOSE_WEIGHT)
+    assert -MAX_DEFICIT_KCAL - 5 <= r.surplus < 0
+    low, high = r.weekly_gain_kg
+    assert low < high < 0                    # both rates are losses
+    assert r.protein_g_per_kg == 2.2         # high protein protects muscle
+
+
+def test_goal_date_counts_down_for_weight_loss():
+    today = date(2026, 1, 1)
+    goal = estimate_goal_date(80, 75, (-0.8, -0.4), today)
+    assert goal.to_gain_kg == -5
+    assert goal.earliest_date < goal.estimated_date < goal.latest_date
+    assert goal.earliest_date > today
+    # The target itself sets the direction: 85 > 80 means gain, even for a loss goal.
+    gain = estimate_goal_date(80, 85, (-0.8, -0.4), today)
+    assert gain.to_gain_kg == 5 and gain.earliest_date > today
+
+
+def test_target_weight_can_be_anywhere_in_the_allowed_range():
+    assert target_weight_fits(Goal.LOSE_WEIGHT, 80, 75)
+    assert target_weight_fits(Goal.LOSE_WEIGHT, 80, 85)     # above current: gain
+    assert target_weight_fits(Goal.LEAN_BULK, 80, 85)
+    assert target_weight_fits(Goal.LEAN_BULK, 80, 75)       # below current: lose
+    assert not target_weight_fits(Goal.RECOMP, 80, 75)      # maintenance: no goal weight
+    assert not target_weight_fits(Goal.LOSE_WEIGHT, 80, 34)
+    assert not target_weight_fits(Goal.LOSE_WEIGHT, 80, 201)
+    assert target_weight_fits(Goal.LOSE_WEIGHT, 80, None)

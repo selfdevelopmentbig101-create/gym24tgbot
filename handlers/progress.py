@@ -30,7 +30,7 @@ from handlers import extras
 from handlers.premium import send_locked
 from services import achievements, body, charts, premium, records, reminders, users
 from services.body import aware
-from services.nutrition import targets_for_profile
+from services.nutrition import goal_weight_direction, targets_for_profile
 from services.validation import ValidationError
 from utils.texts import t
 
@@ -108,6 +108,9 @@ def trend_line(trend: float | None, user: User) -> str:
     verdict = body.classify_trend(trend, (low, high))
     if high == 0 and verdict != "on_track":
         text = t("trend_recomp_off")
+    elif goal_weight_direction(user.profile.goal) < 0:
+        text = t(f"trend_{verdict}_loss" if verdict != "on_track" else "trend_on_track",
+                 low=abs(high), high=abs(low))
     else:
         text = t(f"trend_{verdict}", low=low, high=high)
     return t("progress_trend", trend=f"{trend:+.2f}", verdict=text)

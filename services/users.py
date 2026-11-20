@@ -34,7 +34,7 @@ def clean_profile_value(field_name: str, value):
         "weight_kg": validation.validate_weight,
         "training_days": validation.validate_training_days,
         # Optional (Mini App onboarding); None clears it.
-        "target_weight_kg": lambda v: None if v is None else validation.validate_weight(v),
+        "target_weight_kg": lambda v: None if v is None else validation.validate_target_weight(v),
         # Keep only known injury codes, without duplicates, in a stable order.
         "injuries": lambda items: sorted({Injury(i).value for i in items or []}),
     }

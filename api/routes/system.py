@@ -7,6 +7,7 @@ from api.schemas import ConfigOut, HealthOut, LanguageOption, ProfileRules
 from config import config
 from database.enums import Diet, Equipment, Experience, Goal, Injury, Sex
 from services import validation
+from services.nutrition import GOALS_BY_SEX
 from utils.texts import LANGUAGE_NAMES, SUPPORTED_LANGUAGES
 
 router = APIRouter(prefix="/api", tags=["system"])
@@ -28,8 +29,10 @@ async def app_config(_: TelegramIdentity = Depends(get_identity)) -> ConfigOut:
             age=validation.AGE_RANGE,
             height_cm=validation.HEIGHT_RANGE_CM,
             weight_kg=validation.WEIGHT_RANGE_KG,
+            target_weight_kg=validation.TARGET_WEIGHT_RANGE_KG,
             training_days=validation.TRAINING_DAYS_RANGE,
-            goals=list(Goal), sexes=list(Sex), experience=list(Experience),
+            goals=list(Goal), goals_by_sex={sex: list(goals) for sex, goals in GOALS_BY_SEX.items()},
+            sexes=list(Sex), experience=list(Experience),
             equipment=list(Equipment), injuries=list(Injury), diets=list(Diet),
         ),
     )

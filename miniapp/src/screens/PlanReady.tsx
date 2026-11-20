@@ -29,6 +29,8 @@ export function PlanReady({ targets, lang, t, justFinished, planReady, languageP
     new Intl.DateTimeFormat(locale, { day: "numeric", month: "long", year: "numeric" })
       .format(new Date(iso + "T12:00:00"));
   const [gainLow, gainHigh] = targets.weekly_gain_kg;
+  const loss = gainHigh < 0;
+  const maintain = gainHigh === 0;
   const kg = new Intl.NumberFormat(locale, { maximumFractionDigits: 2 });
 
   return (
@@ -53,8 +55,14 @@ export function PlanReady({ targets, lang, t, justFinished, planReady, languageP
       ) : (
         <section className="card goal-card">
           <div>
-            <p className="goal-label">{t(gainHigh > 0 ? "goal_no_target_title" : "goal_card_recomp_title")}</p>
-            <p className="goal-range">{t(gainHigh > 0 ? "goal_no_target" : "goal_card_recomp")}</p>
+            <p className="goal-label">
+              {t(!maintain ? "goal_no_target_title"
+                : targets.profile_goal === "improve_health" ? "goal_card_maintain_title" : "goal_card_recomp_title")}
+            </p>
+            <p className="goal-range">
+              {t(!maintain ? "goal_no_target"
+                : targets.profile_goal === "improve_health" ? "goal_card_maintain" : "goal_card_recomp")}
+            </p>
           </div>
           <Road />
         </section>
@@ -74,12 +82,23 @@ export function PlanReady({ targets, lang, t, justFinished, planReady, languageP
 
       <section className="card facts">
         <p>
-          {gainHigh > 0
-            ? t("gain_per_week", { low: kg.format(gainLow), high: kg.format(gainHigh) })
-            : t("recomp_per_week")}
+          {loss
+            ? t("loss_per_week", { low: kg.format(Math.abs(gainHigh)), high: kg.format(Math.abs(gainLow)) })
+            : maintain
+              ? t("recomp_per_week")
+              : t("gain_per_week", { low: kg.format(gainLow), high: kg.format(gainHigh) })}
         </p>
         <p className="muted small">
-          {t("maintenance", { tdee: number.format(targets.tdee), surplus: number.format(targets.surplus) })}
+          {maintain
+            ? t("maintenance", { tdee: number.format(targets.tdee), surplus: 0 })
+            : loss
+              ? t("maintenance_deficit", {
+                  tdee: number.format(targets.tdee),
+                  deficit: number.format(Math.max(0, -targets.surplus)),
+                })
+              : t("maintenance", {
+                  tdee: number.format(targets.tdee), surplus: number.format(Math.max(0, targets.surplus)),
+                })}
         </p>
         {targets.notes.filter((n) => NOTE_KEYS.has(n)).map((note) => (
           <p key={note} className="note">{t(note as TextKey)}</p>

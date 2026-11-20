@@ -70,7 +70,9 @@ def test_goal_date_range():
     assert goal.earliest_date < goal.estimated_date < goal.latest_date
     assert goal.earliest_date == today + timedelta(days=round(5 / 0.19 * 7))
     assert estimate_goal_date(75, None, (0.08, 0.19), today) is None
-    assert estimate_goal_date(75, 74, (0.08, 0.19), today) is None   # already reached
+    # 74 < 75: the target itself says lose, even though the goal's rates are gains.
+    loss = estimate_goal_date(75, 74, (0.08, 0.19), today)
+    assert loss.to_gain_kg == -1 and loss.earliest_date > today
     assert estimate_goal_date(75, 80, (0.0, 0.0), today) is None     # recomposition
 
 
@@ -79,7 +81,33 @@ def test_goal_date_range():
 async def test_config_has_the_same_limits_as_the_bot(client):
     rules = (await client.get("/api/config", headers=as_user(ALICE))).json()["profile_rules"]
     assert rules["age"] == [16, 80] and rules["training_days"] == [2, 6]
+    assert rules["weight_kg"] == [35, 250] and rules["target_weight_kg"] == [35, 200]
     assert "lean_bulk" in rules["goals"] and "knee" in rules["injuries"]
+
+
+async def test_config_offers_the_goal_cards_for_each_sex(client):
+    rules = (await client.get("/api/config", headers=as_user(ALICE))).json()["profile_rules"]
+    assert rules["goals_by_sex"]["male"] == ["bulk", "lean_bulk", "recomp"]
+    assert rules["goals_by_sex"]["female"] == [
+        "lose_weight", "gain_muscle", "improve_health", "get_in_shape"]
+
+
+async def test_weight_loss_goal_accepts_a_lower_target(client):
+    data = await onboarded(client, goal="lose_weight", sex="female", target_weight_kg=70)
+    targets = data["targets"]
+    assert data["profile"]["goal"] == "lose_weight" and data["profile"]["target_weight_kg"] == 70
+    assert targets["profile_goal"] == "lose_weight"
+    assert targets["surplus"] < 0 and targets["weekly_gain_kg"][1] < 0
+    assert targets["goal"]["to_gain_kg"] == -5
+    assert date.fromisoformat(targets["goal"]["estimated_date"]) > date.today()
+
+
+async def test_goal_weight_can_point_either_way(client):
+    # The goal is weight loss, but 80 > 75: the target itself means gain.
+    data = await onboarded(client, goal="lose_weight", sex="female", target_weight_kg=80)
+    assert data["profile"]["target_weight_kg"] == 80
+    assert data["targets"]["goal"]["to_gain_kg"] == 5
+    assert data["targets"]["surplus"] < 0   # the calorie goal still follows the chosen goal
 
 
 async def test_onboarding_needs_login_and_disclaimer(client):
@@ -117,7 +145,8 @@ async def test_full_onboarding_builds_plan_targets_and_tells_the_chat(client):
     ({"height_cm": 300}, "height_cm", "err_height"),
     ({"weight_kg": 20}, "weight_kg", "err_weight"),
     ({"training_days": 7}, "training_days", "err_generic"),
-    ({"target_weight_kg": 70}, "target_weight_kg", "err_target_weight"),     # below current
+    ({"target_weight_kg": 34}, "target_weight_kg", "err_target_weight"),     # below 35 kg
+    ({"target_weight_kg": 201}, "target_weight_kg", "err_target_weight"),    # above 200 kg
     ({"goal": "recomp"}, "target_weight_kg", "err_target_weight"),          # recomp has no target
 ])
 async def test_invalid_answers_are_rejected_with_a_field_and_key(client, changes, field, error):
@@ -157,6 +186,20 @@ async def test_patch_changes_answers_and_rebuilds_plan_only_when_needed(client):
 
     bad = await client.patch("/api/profile", json={"age": None}, headers=h)
     assert bad.status_code == 422
+
+
+async def test_patch_to_weight_loss_keeps_a_target_above_current(client):
+    await onboarded(client)   # lean bulk, current 75, goal weight 80
+    h = as_user(ALICE)
+
+    response = (await client.patch("/api/profile", json={"goal": "lose_weight"}, headers=h)).json()
+    assert response["profile"]["target_weight_kg"] == 80   # allowed: target says gain
+    assert response["targets"]["surplus"] < 0              # calories still follow the goal
+    assert response["targets"]["goal"]["to_gain_kg"] == 5
+
+    response = (await client.patch("/api/profile", json={"target_weight_kg": 70}, headers=h)).json()
+    assert response["profile"]["target_weight_kg"] == 70
+    assert response["targets"]["goal"]["to_gain_kg"] == -5
 
 
 async def test_users_only_see_their_own_profile(client):

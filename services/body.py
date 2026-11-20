@@ -60,10 +60,16 @@ async def weekly_trend(session: AsyncSession, user: User, now: datetime | None =
 
 
 def classify_trend(trend: float, target: tuple[float, float]) -> str:
-    """'slow', 'on_track' or 'fast' compared with the goal's healthy weekly gain."""
+    """'slow', 'on_track' or 'fast' compared with the goal's healthy weekly change."""
     low, high = target
     if high == 0:  # recomposition: weight should stay roughly stable
         return "on_track" if abs(trend) <= 0.25 else ("fast" if trend > 0 else "slow")
+    if high < 0:  # weight-loss goal: numbers are negative
+        if trend > high + 0.05:
+            return "slow"      # losing more slowly than planned (or gaining)
+        if trend < low - 0.05:
+            return "fast"      # losing faster than planned
+        return "on_track"
     if trend < low - 0.05:
         return "slow"
     if trend > high + 0.1:

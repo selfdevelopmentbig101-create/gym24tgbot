@@ -31,6 +31,8 @@ SECONDARY_MUSCLES_FILE = DATA_DIR / "secondary_muscles.json"
 
 DIFFICULTIES = ("beginner", "intermediate", "advanced")
 MOVEMENT_TYPES = ("compound", "isolation")
+# "stretching" and "cardio" are library-only; plans use the other three.
+CATEGORIES = ("strength", "stretching", "cardio", "olympic", "plyometrics")
 REQUIRED_FIELDS = {
     "id": str,
     "name": str,
@@ -43,7 +45,9 @@ REQUIRED_FIELDS = {
 }
 # Lowercase letters, digits and dashes: safe as a file name and in button data.
 ID_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
-MAX_ID_LENGTH = 40  # Telegram button data is limited to 64 bytes in total
+# Exercise IDs are also used in Mini App URLs, not as raw Telegram button data
+# (card buttons use a short token for long IDs), so 40 is not a hard limit here.
+MAX_ID_LENGTH = 48
 
 
 class ExerciseDataError(ValueError):
@@ -93,6 +97,8 @@ def validate_exercises(records: object) -> list[dict]:
             problems.append(f"{where}: difficulty must be one of {DIFFICULTIES}")
         if entry.get("movement_type") not in MOVEMENT_TYPES:
             problems.append(f"{where}: movement_type must be one of {MOVEMENT_TYPES}")
+        if entry.get("category", "strength") not in CATEGORIES:
+            problems.append(f"{where}: category must be one of {CATEGORIES}")
         tips = entry.get("form_tips")
         if tips is not None and not isinstance(tips, str):
             problems.append(f"{where}: form_tips must be text")
@@ -194,6 +200,7 @@ async def import_exercises(session: AsyncSession, records: list[dict]) -> Import
 
     for position, entry in enumerate(records):
         values = {name: entry[name] for name in columns}
+        values["category"] = entry.get("category", "strength")
         values["secondary_muscles"] = list(entry.get("secondary_muscles") or [])
         if "form_tips" in entry:
             values["form_tips"] = (entry["form_tips"] or "").strip() or None

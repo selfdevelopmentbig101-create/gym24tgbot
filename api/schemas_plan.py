@@ -3,6 +3,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from database.enums import Equipment, Experience, Injury
+
 Goal = Literal["strength", "hypertrophy", "endurance"]
 
 
@@ -31,6 +33,14 @@ class DayIn(_In):
 class DayPatch(_In):
     title: str | None = Field(None, max_length=30, description="Empty or null = the default name")
     position: int | None = Field(None, ge=0, le=6, description="New place in the week (0 = first)")
+
+
+class PlanPreviewIn(_In):
+    """POST /api/plan/preview: the split the onboarding would build for these answers."""
+    experience: Experience
+    equipment: Equipment
+    injuries: list[Injury] = Field(default_factory=list, max_length=len(Injury))
+    days: int = Field(ge=2, le=6, description="Workouts per week (the split follows from it)")
 
 
 class ExerciseIn(_In):

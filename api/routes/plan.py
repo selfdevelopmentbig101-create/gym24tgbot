@@ -28,7 +28,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.deps import get_session, get_user
-from api.schemas_plan import DayIn, DayPatch, EntryPatch, ExerciseIn, ProgramIn, ProgramPatch
+from api.schemas_plan import DayIn, DayPatch, EntryPatch, ExerciseIn, PlanPreviewIn, ProgramIn, ProgramPatch
 from database.models import User
 from services import library, programs
 from services.programs import ProgramError
@@ -54,6 +54,14 @@ async def _plan(request: Request, user: User, session: AsyncSession) -> dict:
 
 
 # ---------- current plan and split editor ----------
+
+@router.post("/plan/preview")
+async def preview_plan(body: PlanPreviewIn, user: User = Depends(get_user),
+                       session: AsyncSession = Depends(get_session)) -> dict:
+    """Build a split for the onboarding without saving a profile or a plan."""
+    return await _guard(programs.preview_plan(
+        session, body.experience, body.equipment, [i.value for i in body.injuries], body.days))
+
 
 @router.get("/plan")
 async def get_plan(request: Request, user: User = Depends(get_user),

@@ -6,9 +6,17 @@ from enum import Enum
 
 
 class Goal(str, Enum):
+    # Male goal set.
     BULK = "bulk"
     LEAN_BULK = "lean_bulk"
     RECOMP = "recomp"
+    # Female goal set. The four values are real goals: lose weight and get in
+    # shape use a calorie deficit, gain muscle a small surplus, improve health
+    # maintenance.
+    LOSE_WEIGHT = "lose_weight"
+    GAIN_MUSCLE = "gain_muscle"
+    IMPROVE_HEALTH = "improve_health"
+    GET_IN_SHAPE = "get_in_shape"
 
 
 class Sex(str, Enum):

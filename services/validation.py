@@ -7,6 +7,8 @@ import re
 AGE_RANGE = (16, 80)
 HEIGHT_RANGE_CM = (130.0, 220.0)
 WEIGHT_RANGE_KG = (35.0, 250.0)
+# A goal weight is always selectable in this range, whatever the current weight.
+TARGET_WEIGHT_RANGE_KG = (35.0, 200.0)
 TRAINING_DAYS_RANGE = (2, 6)
 
 LB_TO_KG = 0.45359237
@@ -59,18 +61,28 @@ def validate_height(value: str | float) -> float:
     return round(cm, 1)
 
 
-def validate_weight(value: str | float) -> float:
-    """Accepts '80', '80.5', '80,5 kg' or '176 lb'."""
+def _validate_weight(value: str | float, allowed: tuple[float, float], error_key: str) -> float:
+    """Accepts '80', '80.5', '80,5 kg' or '176 lb' and checks the given range."""
     number, unit = _parse(str(value))
     if unit in ("", "kg", "kgs"):
         kg = number
     elif unit in ("lb", "lbs"):
         kg = number * LB_TO_KG
     else:
-        raise ValidationError("err_weight")
-    if not WEIGHT_RANGE_KG[0] <= kg <= WEIGHT_RANGE_KG[1]:
-        raise ValidationError("err_weight")
+        raise ValidationError(error_key)
+    if not allowed[0] <= kg <= allowed[1]:
+        raise ValidationError(error_key)
     return round(kg, 1)
+
+
+def validate_weight(value: str | float) -> float:
+    """Current body weight: 35-250 kg."""
+    return _validate_weight(value, WEIGHT_RANGE_KG, "err_weight")
+
+
+def validate_target_weight(value: str | float) -> float:
+    """Goal weight: 35-200 kg, regardless of the current weight."""
+    return _validate_weight(value, TARGET_WEIGHT_RANGE_KG, "err_target_weight")
 
 
 def validate_training_days(value: str | int) -> int:

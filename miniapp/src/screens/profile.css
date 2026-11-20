@@ -26,6 +26,11 @@
 }
 
 .rank-steps li.rank-on { color: var(--color-mint); }
+.rank-steps li.rank-current {
+  color: var(--color-text-on-accent);
+  background: var(--gradient-accent);
+  font-weight: var(--font-weight-semibold);
+}
 
 .profile-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-2); }
 .profile-stat { display: flex; flex-direction: column; gap: 2px; padding: var(--space-3); border-radius: var(--radius-sm); background: var(--color-surface-sunken); }

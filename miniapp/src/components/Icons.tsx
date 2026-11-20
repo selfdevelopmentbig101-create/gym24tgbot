@@ -27,6 +27,8 @@ export const Bread = () => (
 );
 export const Drop = () => <Svg><path d="M12 3.5l5.2 7.3a6.3 6.3 0 1 1-10.4 0z" /></Svg>;
 export const TrendUp = () => <Svg><path d="M4 17l6-6 4 4 6-7M15 8h5v5" /></Svg>;
+export const TrendDown = () => <Svg><path d="M4 7l6 6 4-4 6 7M15 16h5v-5" /></Svg>;
+export const Heart = () => <Svg><path d="M12 20s-7-4.4-7-9.2A3.8 3.8 0 0 1 12 8a3.8 3.8 0 0 1 7 2.8C19 15.6 12 20 12 20z" /></Svg>;
 export const Leaf = () => <Svg><path d="M5 19c0-8 5-13 14-14-1 9-6 14-14 14zM5 19l7-7" /></Svg>;
 export const Scale = () => <Svg><rect x="4" y="4" width="16" height="16" rx="4" /><path d="M8.5 11a3.5 3.5 0 0 1 7 0M12 11l1.6-2.2" /></Svg>;
 export const Sparkles = () => (

@@ -25,9 +25,8 @@ def test_levels_and_thresholds():
     assert mid.progress == 50 and mid.to_next == cfg.LEVELS[2][1] - mid.xp
 
 
-def test_start_level_and_earned_xp():
-    assert levels.start_xp("beginner") == 0
-    assert levels.start_xp("advanced") == dict(cfg.LEVELS)["advanced"]
+def test_earned_xp_starts_everyone_at_rookie():
+    assert levels.make_level(0).key == "rookie" and levels.make_level(0).index == 0
     assert levels.earned_xp(2, 1, 1) == 2 * cfg.XP_PER_WORKOUT + cfg.XP_PER_PR + cfg.XP_PER_GOAL_WEEK
 
 
@@ -57,11 +56,24 @@ async def setup_profile(client):
     assert response.status_code == 200, response.text
 
 
+async def test_new_profile_always_starts_at_rookie(client):
+    """Experience only shapes the plan; it must never give free levels or XP."""
+    for i, experience in enumerate(("beginner", "intermediate", "advanced")):
+        headers = auth(sign_init_data({"id": 7500 + i, "first_name": "New", "language_code": "en"}))
+        assert (await client.post("/api/me/disclaimer", headers=headers)).status_code == 204
+        response = await client.put("/api/profile", json={**ANSWERS, "experience": experience}, headers=headers)
+        assert response.status_code == 200, response.text
+        view = (await client.get("/api/me/level", headers=headers)).json()
+        assert view["level"]["xp"] == 0
+        assert view["level"]["index"] == 0 and view["level"]["key"] == "rookie"
+
+
 async def test_level_grows_after_a_workout(client):
     assert (await client.get("/api/me/level", headers=H)).status_code == 409   # no profile yet
     await setup_profile(client)
     before = (await client.get("/api/me/level", headers=H)).json()
-    assert before["level"]["xp"] == levels.start_xp(ANSWERS["experience"])
+    assert before["level"]["xp"] == 0
+    assert before["level"]["index"] == 0 and before["level"]["key"] == "rookie"
     assert before["mood"] == "rested" and before["energy"] == 100
 
     ws = (await client.post("/api/workouts", json={"day_index": 0}, headers=H)).json()

@@ -25,6 +25,13 @@ HOME_EQUIPMENT = {
     Equipment.HOME_DUMBBELLS: {"dumbbell", "bodyweight"},
     Equipment.BODYWEIGHT: {"bodyweight"},
 }
+# Stretches and cardio live in the library but are not picked for workout plans.
+PLAN_CATEGORIES = frozenset({"strength", "olympic", "plyometrics"})
+
+
+def plan_ok(exercise: Exercise) -> bool:
+    """Whether the plan generator may use this exercise."""
+    return (getattr(exercise, "category", None) or "strength") in PLAN_CATEGORIES
 
 
 @dataclass(frozen=True)
@@ -132,6 +139,7 @@ def pick_substitute(current: Exercise, catalog: dict[str, Exercise], user: UserF
         if ex.id not in skip
         and ex.muscle_group == current.muscle_group
         and ex.movement_type == current.movement_type
+        and plan_ok(ex)
         and is_available(ex, user, rules)
     ]
     return min(similar, key=lambda ex: rank_key(ex, user), default=None)

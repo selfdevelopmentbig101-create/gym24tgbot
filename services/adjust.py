@@ -5,8 +5,9 @@ until the user taps Accept.
 1. Deload: if 2+ exercises have stalled (no estimated-1RM progress over the
    last 3 workouts compared with earlier ones), suggest one lighter week:
    ~60% of the sets at ~90% of the weight. Lets fatigue drop so progress resumes.
-2. Calories: if weight gain was too slow (or too fast) for the goal two weeks
-   in a row, suggest +150 kcal (or -150 kcal) a day.
+2. Calories: if weight change was too slow (or too fast) for the goal two
+   weeks in a row, suggest a 150 kcal step in the right direction (up for
+   muscle gain, down for weight loss).
 
 Safety: calorie changes are small steps within -300...+450 kcal in total;
 the calculator's floor (never below BMR) still applies. Each suggestion has a
@@ -21,7 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database.models import Exercise, SetLog, User, utcnow
 from services import body, records, reminders
 from services.body import aware
-from services.nutrition import targets_for_profile
+from services.nutrition import goal_weight_direction, targets_for_profile
 from services.progression import round_to_step
 
 KCAL_STEP = 150
@@ -120,10 +121,12 @@ async def calorie_suggestion(session: AsyncSession, user: User,
         return None
     target = targets_for_profile(profile).weekly_gain_kg
     verdicts = {body.classify_trend(trend_now, target), body.classify_trend(trend_before, target)}
+    # A deficit goal moves the opposite way: losing too slowly means eating less.
+    direction = goal_weight_direction(profile.goal)
     if verdicts == {"slow"}:
-        delta = KCAL_STEP
+        delta = KCAL_STEP if direction >= 0 else -KCAL_STEP
     elif verdicts == {"fast"}:
-        delta = -KCAL_STEP
+        delta = -KCAL_STEP if direction >= 0 else KCAL_STEP
     else:
         return None
     adjust = (profile.calorie_adjust or 0) + delta

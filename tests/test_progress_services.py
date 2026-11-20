@@ -75,6 +75,7 @@ async def test_weight_logging_updates_profile_and_trend(session_factory):
 @pytest.mark.parametrize("trend,target,expected", [
     (0.15, (0.08, 0.19), "on_track"), (0.0, (0.08, 0.19), "slow"), (0.5, (0.08, 0.19), "fast"),
     (0.1, (0.0, 0.0), "on_track"), (-0.5, (0.0, 0.0), "slow"),
+    (-0.5, (-0.8, -0.4), "on_track"), (-0.1, (-0.8, -0.4), "slow"), (-1.2, (-0.8, -0.4), "fast"),
 ])
 def test_classify_trend(trend, target, expected):
     assert body.classify_trend(trend, target) == expected

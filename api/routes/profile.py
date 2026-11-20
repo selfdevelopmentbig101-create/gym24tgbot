@@ -16,7 +16,7 @@ from api.schemas import GoalOut, ProfileIn, ProfileOut, ProfilePatch, ProfileSav
 from database.enums import Goal
 from database.models import Profile, User
 from services import plans, users
-from services.nutrition import estimate_goal_date, targets_for_profile
+from services.nutrition import estimate_goal_date, target_weight_fits, targets_for_profile
 from services.validation import ValidationError
 from utils.texts import resolve_language
 
@@ -42,10 +42,8 @@ def _clean(data: dict) -> dict:
 
 
 def _check_target(goal: Goal, weight_kg: float, target: float | None) -> None:
-    """A goal weight only makes sense above the current weight, for goals that gain weight."""
-    if target is None:
-        return
-    if goal == Goal.RECOMP or target <= weight_kg:
+    """A goal weight can be anywhere in 35-200 kg; the value itself sets the direction."""
+    if not target_weight_fits(goal, weight_kg, target):
         raise _invalid("target_weight_kg", "err_target_weight")
 
 
@@ -57,7 +55,8 @@ def targets_out(profile: Profile, today: date | None = None) -> TargetsOut:
         calories=targets.calories, protein_g=targets.protein_g, carbs_g=targets.carbs_g,
         fat_g=targets.fat_g, bmr=targets.bmr, tdee=targets.tdee, surplus=targets.surplus,
         protein_g_per_kg=targets.protein_g_per_kg, weekly_gain_kg=targets.weekly_gain_kg,
-        goal=GoalOut(**goal.__dict__) if goal else None, notes=targets.notes,
+        goal=GoalOut(**goal.__dict__) if goal else None, profile_goal=profile.goal,
+        notes=targets.notes,
     )
 
 
@@ -133,7 +132,7 @@ async def patch_profile(body: ProfilePatch, user: User = Depends(get_user),
     target = clean.get("target_weight_kg", profile.target_weight_kg)
     if "target_weight_kg" in clean:
         _check_target(goal, weight, target)
-    elif target is not None and (goal == Goal.RECOMP or target <= weight):
+    elif not target_weight_fits(goal, weight, target):
         clean["target_weight_kg"] = None  # the old goal weight no longer applies
 
     old = {name: getattr(profile, name) for name in plans.PLAN_FIELDS}

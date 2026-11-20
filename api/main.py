@@ -30,6 +30,7 @@ logger = logging.getLogger("api")
 
 ROOT = Path(__file__).resolve().parent.parent
 EXERCISE_IMAGES = ROOT / "assets" / "exercises"
+LEVEL_IMAGES = ROOT / "assets" / "levels"
 MINIAPP_BUILD = ROOT / "miniapp" / "dist"
 
 
@@ -93,6 +94,9 @@ def create_app(session_factory: async_sessionmaker | None = None,
     # Exercise images (public, no user data), cached for a week.
     app.mount("/static/exercises",
               CachedStaticFiles(directory=app.state.exercise_images, check_dir=False), name="exercises")
+    # Level artwork for the character (same cache story as exercise images).
+    app.mount("/static/levels",
+              CachedStaticFiles(directory=LEVEL_IMAGES, check_dir=False), name="levels")
     # The built Mini App, if present (npm run build in miniapp/). Mounted last.
     if MINIAPP_BUILD.is_dir():
         app.mount("/", MiniAppFiles(directory=MINIAPP_BUILD, html=True), name="miniapp")

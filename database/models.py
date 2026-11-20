@@ -125,6 +125,9 @@ class Exercise(Base):
     equipment: Mapped[str] = mapped_column(String(40), index=True)
     difficulty: Mapped[str] = mapped_column(String(20), index=True)
     movement_type: Mapped[str] = mapped_column(String(40))
+    # "strength", "stretching", "cardio", "olympic" or "plyometrics". Plans only
+    # use strength/olympic/plyometrics; the library shows everything.
+    category: Mapped[str] = mapped_column(String(20), default="strength", server_default="strength")
     home_friendly: Mapped[bool] = mapped_column(Boolean, default=False)
     # IDs of other exercises in this table; the import script validates them.
     substitute_ids: Mapped[list[str]] = mapped_column(JSON, default=list)

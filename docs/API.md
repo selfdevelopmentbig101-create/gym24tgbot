@@ -36,21 +36,23 @@ The client never sends a user ID; the server takes it from verified initData.
 ### Stage 2: onboarding and targets
 | Method | Path | Purpose |
 |---|---|---|
-| ✅ GET | `/api/config` → `profile_rules` | allowed ranges and choices (same limits as the bot), so the app validates as it goes |
+| ✅ GET | `/api/config` → `profile_rules` | allowed ranges and choices (same limits as the bot), so the app validates as it goes; `goals_by_sex` holds the goal cards for each answer to the sex question |
 | ✅ POST | `/api/me/disclaimer` | accept the health disclaimer (204). Same field as the bot's "I understand" |
 | ✅ PUT | `/api/profile` | save all onboarding answers (+ optional `target_weight_kg`). Needs the disclaimer (409 `disclaimer_required`). Builds the workout plan; the first save also sends the main menu to the chat |
 | ✅ GET | `/api/profile` | the saved answers (404 `no_profile` before onboarding) |
 | ✅ PATCH | `/api/profile` | change some answers; `target_weight_kg: null` removes the goal weight. The plan is rebuilt only when equipment, level, days or injuries change |
-| ✅ GET | `/api/targets` | calories, protein, carbs, fat, maintenance, surplus, weekly gain range, estimated goal date (+ earliest/latest), advice keys |
+| ✅ GET | `/api/targets` | calories, protein, carbs, fat, maintenance, surplus (negative = deficit), weekly change range (negative = loss), estimated goal date (+ earliest/latest), advice keys |
 
 Rejected answers return `422 {"detail": {"field": "age", "error": "err_age"}}`; the app
-translates the error key and jumps back to that question. A goal weight must be above
-the current weight and isn't used for recomposition (`err_target_weight`).
+translates the error key and jumps back to that question. A goal weight must point in the
+same direction as the goal: above the current weight for gain goals, below it for
+weight-loss goals. Recomposition and improve-health have no goal weight
+(`err_target_weight`).
 
 Calculator (`services/nutrition.py`, shared with the bot): Mifflin-St Jeor BMR × activity
-factor, goal surplus within safety limits, protein 1.6–2.2 g/kg, fat 25% of calories
-(at least 0.6 g/kg), carbs = the rest. Goal date = kg to gain ÷ the healthy weekly
-gain rate (middle of the range; earliest/latest use its ends).
+factor, goal surplus or deficit within safety limits, protein 1.6–2.2 g/kg, fat 25% of
+calories (at least 0.6 g/kg), carbs = the rest. Goal date = kg to change ÷ the healthy
+weekly rate (middle of the range; earliest/latest use its ends).
 
 ### Stage 3: exercises
 | Method | Path | Purpose |
@@ -64,6 +66,7 @@ plans never disagree. Images are read from `assets/exercises/` (`{id}-start` + `
 `{id}`), the same files the bot uses; URLs carry a version, so replacing a file shows up at once.
 
 ### Stage 4: plans and programs
+| POST | `/api/plan/preview` | split preview for onboarding: experience, equipment, injuries, days → split, weekdays and days with exercises (nothing is saved) |
 | GET | `/api/programs?tab=current\|available\|created` | program lists |
 | POST | `/api/programs` | create (name, weeks, workouts/week, goal) |
 | GET / PATCH / DELETE | `/api/programs/{id}` | details, rename, delete |

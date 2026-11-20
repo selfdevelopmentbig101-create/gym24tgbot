@@ -124,6 +124,38 @@ export interface EntryChanges { sets?: number; rep_min?: number; rep_max?: numbe
 
 export interface NewProgram { name: string; weeks: number; workouts_per_week: number; goal: Goal; activate: boolean }
 
+// ---- onboarding split preview (nothing is saved) ----
+export interface PreviewExercise {
+  exercise_id: string;
+  name: string;
+  muscle_group: string;
+  sets: number;
+  rep_min: number;
+  rep_max: number;
+  timed: boolean;
+  rest_seconds: number;
+}
+
+export interface PreviewDay {
+  name_key: string;
+  suffix: string;
+  exercises: PreviewExercise[];
+}
+
+export interface PlanPreview {
+  split: string;
+  weeks: number;
+  weekdays: number[];
+  days: PreviewDay[];
+}
+
+export const previewPlan = (body: {
+  experience: string;
+  equipment: string;
+  injuries: string[];
+  days: number;
+}) => api<PlanPreview>("/api/plan/preview", { method: "POST", body });
+
 // ---- current plan and split editor ----
 export const getPlan = () => api<PlanView>("/api/plan");
 export const addDay = (title?: string) =>

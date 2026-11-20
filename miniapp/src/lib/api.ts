@@ -62,7 +62,9 @@ export const setLanguage = (language: LanguageCode) =>
 
 // ---------- Stage 2: onboarding and targets ----------
 
-export type Goal = "bulk" | "lean_bulk" | "recomp";
+export type Goal =
+  | "bulk" | "lean_bulk" | "recomp"
+  | "lose_weight" | "gain_muscle" | "improve_health" | "get_in_shape";
 export type Sex = "male" | "female" | "unspecified";
 export type Experience = "beginner" | "intermediate" | "advanced";
 export type Equipment = "full_gym" | "home_dumbbells" | "bodyweight";
@@ -73,8 +75,12 @@ export interface ProfileRules {
   age: [number, number];
   height_cm: [number, number];
   weight_kg: [number, number];
+  /** Allowed goal weight (independent of the current weight). */
+  target_weight_kg: [number, number];
   training_days: [number, number];
   goals: Goal[];
+  /** The goal cards to show for each answer to the sex question. */
+  goals_by_sex: Record<Sex, Goal[]>;
   sexes: Sex[];
   experience: Experience[];
   equipment: Equipment[];
@@ -113,6 +119,7 @@ export interface Targets {
   surplus: number;
   protein_g_per_kg: number;
   weekly_gain_kg: [number, number];
+  /** null: no goal weight, already reached, or maintenance. */
   goal: {
     target_weight_kg: number;
     to_gain_kg: number;
@@ -120,6 +127,7 @@ export interface Targets {
     earliest_date: string;
     latest_date: string;
   } | null;
+  profile_goal?: Goal | null;
   notes: string[];
 }
 

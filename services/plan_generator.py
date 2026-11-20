@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 
 from database.enums import Experience
 from database.models import Exercise
-from services.exercises import UserFilter, is_available, rank_key, similarity
+from services.exercises import UserFilter, is_available, plan_ok, rank_key, similarity
 
 logger = logging.getLogger(__name__)
 
@@ -137,7 +137,7 @@ def generate_plan(exercises: list[Exercise], user: UserFilter, training_days: in
                   rules: dict[str, set[str]] | None = None) -> PlanSpec:
     days_clamped = min(max(training_days, min(SPLITS)), max(SPLITS))
     split, day_layout = SPLITS[days_clamped]
-    available = [ex for ex in exercises if is_available(ex, user, rules)]
+    available = [ex for ex in exercises if plan_ok(ex) and is_available(ex, user, rules)]
     per_day = 6 if user.experience == Experience.BEGINNER else 7
 
     used: Counter = Counter()

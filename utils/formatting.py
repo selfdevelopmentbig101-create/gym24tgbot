@@ -41,10 +41,14 @@ def format_profile(profile: Profile) -> str:
 
 
 def format_targets(targets: NutritionTargets, weight_kg: float) -> str:
-    if targets.surplus > 0:
-        surplus_text = t("surplus_positive", kcal=targets.surplus)
-    else:
+    # The goal decides the wording: rounding to 10 kcal can leave a maintenance
+    # goal at -1 or +2 kcal, which must still read as "maintenance".
+    if targets.weekly_gain_kg[1] == 0:
         surplus_text = t("surplus_zero")
+    elif targets.weekly_gain_kg[1] < 0:
+        surplus_text = t("deficit_text", kcal=max(0, -targets.surplus))
+    else:
+        surplus_text = t("surplus_positive", kcal=max(0, targets.surplus))
 
     if targets.protein_basis_kg < weight_kg:
         protein_basis = t("protein_per_reference_kg", g_per_kg=targets.protein_g_per_kg,
@@ -53,7 +57,12 @@ def format_targets(targets: NutritionTargets, weight_kg: float) -> str:
         protein_basis = t("protein_per_kg", g_per_kg=targets.protein_g_per_kg)
 
     low, high = targets.weekly_gain_kg
-    gain_text = t("gain_range", low=low, high=high) if high > 0 else t("gain_recomp")
+    if high > 0:
+        gain_text = t("gain_range", low=low, high=high)
+    elif high < 0:
+        gain_text = t("loss_range", low=abs(high), high=abs(low))
+    else:
+        gain_text = t("gain_recomp")
 
     parts = [
         t(

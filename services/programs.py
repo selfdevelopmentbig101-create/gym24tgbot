@@ -21,6 +21,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from database.enums import Equipment, Experience
 from database.models import (Exercise, PlanDay, PlanExercise, Program, ReminderSettings, User,
                              WorkoutPlan, WorkoutSession)
 from services import energy
@@ -103,6 +104,41 @@ async def ensure_current(session: AsyncSession, user: User) -> tuple[Program, Wo
         session.add(program)
         await session.commit()
     return program, plan
+
+
+async def preview_plan(session: AsyncSession, experience: Experience, equipment: Equipment,
+                       injuries: list[str], days: int) -> dict:
+    """A split for the onboarding preview. Nothing is saved; no profile is needed."""
+    catalog = await load_catalog(session)
+    if not catalog:
+        raise ProgramError("no_exercises", 503)
+    user = UserFilter(Equipment(equipment), Experience(experience), frozenset(injuries))
+    spec = generate_plan(list(catalog.values()), user, days)
+    return {
+        "split": spec.split,
+        "weeks": rules.DEFAULT_WEEKS,
+        "weekdays": rules.training_weekdays(len(spec.days)),
+        "days": [
+            {
+                "name_key": day.name_key,
+                "suffix": day.suffix,
+                "exercises": [
+                    {
+                        "exercise_id": item.exercise_id,
+                        "name": catalog[item.exercise_id].name,
+                        "muscle_group": catalog[item.exercise_id].muscle_group,
+                        "sets": item.sets,
+                        "rep_min": item.rep_min,
+                        "rep_max": item.rep_max,
+                        "timed": item.timed,
+                        "rest_seconds": item.rest_seconds,
+                    }
+                    for item in day.exercises
+                ],
+            }
+            for day in spec.days
+        ],
+    }
 
 
 async def _own_program(session: AsyncSession, user_id: int, program_id: int) -> Program:

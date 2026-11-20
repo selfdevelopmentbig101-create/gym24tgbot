@@ -3,15 +3,16 @@ Calorie and protein calculator.
 
 1. BMR (energy at rest) with the Mifflin-St Jeor equation.
 2. TDEE = BMR x activity factor (based on training days).
-3. Add a moderate surplus for the goal, inside hard safety limits.
+3. Add a moderate surplus or deficit for the goal, inside hard safety limits.
 4. Protein: 1.6-2.2 g per kg of body weight, depending on goal.
 5. Fat 25% of calories (at least 0.6 g/kg); carbs fill the rest.
-6. Optional goal weight -> estimated goal date at a healthy gain rate.
+6. Optional goal weight -> estimated goal date at a healthy rate of change.
 """
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 
 from database.enums import Goal, Sex
+from services.validation import TARGET_WEIGHT_RANGE_KG
 
 # Hard safety limits, also used by any future auto-adjustment (Phase 6).
 MAX_SURPLUS_KCAL = 500
@@ -27,22 +28,70 @@ FAT_MIN_G_PER_KG = 0.6
 # deliberately conservative. Weekly weigh-ins will fine-tune the target later.
 ACTIVITY_FACTORS = {2: 1.375, 3: 1.45, 4: 1.5, 5: 1.55, 6: 1.6}
 
-# goal -> (surplus as a share of TDEE, minimum kcal, maximum kcal)
+# goal -> (calorie adjustment as a share of TDEE, minimum kcal, maximum kcal).
+# Negative values are a deficit. The hard limits below still apply.
 GOAL_SURPLUS = {
     Goal.BULK: (0.12, 250, 500),
     Goal.LEAN_BULK: (0.07, 150, 300),
     Goal.RECOMP: (0.0, 0, 0),  # Recomposition: eat at maintenance.
+    Goal.LOSE_WEIGHT: (-0.15, -500, -250),
+    Goal.GAIN_MUSCLE: (0.08, 150, 300),
+    Goal.IMPROVE_HEALTH: (0.0, 0, 0),
+    Goal.GET_IN_SHAPE: (-0.06, -300, -100),
 }
 
-# Recomp gets the most protein: it helps build muscle without a surplus.
-GOAL_PROTEIN_G_PER_KG = {Goal.BULK: 1.8, Goal.LEAN_BULK: 2.0, Goal.RECOMP: 2.2}
+# Recomp and weight-loss goals get the most protein: it protects muscle when
+# calories are at maintenance or below.
+GOAL_PROTEIN_G_PER_KG = {
+    Goal.BULK: 1.8,
+    Goal.LEAN_BULK: 2.0,
+    Goal.RECOMP: 2.2,
+    Goal.LOSE_WEIGHT: 2.2,
+    Goal.GAIN_MUSCLE: 2.0,
+    Goal.IMPROVE_HEALTH: 1.8,
+    Goal.GET_IN_SHAPE: 2.1,
+}
 
-# Healthy rate of weight gain, as a share of body weight per week.
-GOAL_WEEKLY_GAIN = {
+# Healthy weekly weight change, as a share of body weight per week. Negative
+# values are loss. The API keeps the field name weekly_gain_kg for compatibility;
+# the sign says whether the target is to gain or lose.
+GOAL_WEEKLY_CHANGE = {
     Goal.BULK: (0.0025, 0.005),
     Goal.LEAN_BULK: (0.001, 0.0025),
     Goal.RECOMP: (0.0, 0.0),
+    Goal.LOSE_WEIGHT: (-0.01, -0.005),
+    Goal.GAIN_MUSCLE: (0.001, 0.0025),
+    Goal.IMPROVE_HEALTH: (0.0, 0.0),
+    Goal.GET_IN_SHAPE: (-0.005, -0.0025),
 }
+
+# Which goals the onboarding offers for each sex (the Mini App reads this from
+# /api/config, so the two stay in sync).
+GOALS_BY_SEX: dict[Sex, tuple[Goal, ...]] = {
+    Sex.MALE: (Goal.BULK, Goal.LEAN_BULK, Goal.RECOMP),
+    Sex.FEMALE: (Goal.LOSE_WEIGHT, Goal.GAIN_MUSCLE, Goal.IMPROVE_HEALTH, Goal.GET_IN_SHAPE),
+    Sex.UNSPECIFIED: tuple(Goal),
+}
+
+
+def goal_weight_direction(goal: Goal) -> int:
+    """+1 = gain weight, -1 = lose weight, 0 = maintenance (no goal weight)."""
+    low, high = GOAL_WEEKLY_CHANGE[Goal(goal)]
+    if high > 0:
+        return 1
+    if high < 0:
+        return -1
+    return 0
+
+
+def target_weight_fits(goal: Goal, _weight_kg: float, target_weight_kg: float | None) -> bool:
+    """Any goal weight in the allowed range is fine; the value itself sets the
+    direction (below current = lose, above = gain). Maintenance goals keep none."""
+    if target_weight_kg is None:
+        return True
+    if goal_weight_direction(goal) == 0:
+        return False
+    return TARGET_WEIGHT_RANGE_KG[0] <= target_weight_kg <= TARGET_WEIGHT_RANGE_KG[1]
 
 
 @dataclass(frozen=True)
@@ -125,7 +174,7 @@ def calculate_targets(
     g_per_kg = clamp(GOAL_PROTEIN_G_PER_KG[goal], PROTEIN_MIN_G_PER_KG, PROTEIN_MAX_G_PER_KG)
     protein = round(protein_weight * g_per_kg / 5) * 5  # nearest 5 g
 
-    gain_low, gain_high = GOAL_WEEKLY_GAIN[goal]
+    change_low, change_high = GOAL_WEEKLY_CHANGE[goal]
     fat, carbs = split_fat_carbs(calories, int(protein), protein_weight)
 
     return NutritionTargets(
@@ -136,7 +185,7 @@ def calculate_targets(
         protein_g=int(protein),
         protein_g_per_kg=g_per_kg,
         protein_basis_kg=round(protein_weight, 1),
-        weekly_gain_kg=(round(weight_kg * gain_low, 2), round(weight_kg * gain_high, 2)),
+        weekly_gain_kg=(round(weight_kg * change_low, 2), round(weight_kg * change_high, 2)),
         notes=notes,
         fat_g=fat,
         carbs_g=carbs,
@@ -157,26 +206,32 @@ def split_fat_carbs(calories: int, protein_g: int, protein_basis_kg: float) -> t
 @dataclass(frozen=True)
 class GoalEstimate:
     target_weight_kg: float
-    to_gain_kg: float
-    estimated_date: date   # at the middle of the healthy gain rate
+    to_gain_kg: float       # negative = weight to lose
+    estimated_date: date   # at the middle of the healthy rate
     earliest_date: date    # at the fastest healthy rate
     latest_date: date      # at the slowest healthy rate
 
 
 def estimate_goal_date(weight_kg: float, target_weight_kg: float | None,
                        weekly_gain_kg: tuple[float, float], today: date) -> GoalEstimate | None:
-    """None when there's no target, it's already reached, or the goal gains no weight (recomp)."""
+    """None when there's no target, it's already reached, or the goal keeps weight stable."""
     low, high = weekly_gain_kg
-    if target_weight_kg is None or target_weight_kg <= weight_kg or low <= 0 or high <= 0:
+    if target_weight_kg is None or low == 0 or high == 0:
         return None
-    to_gain = target_weight_kg - weight_kg
+    to_change = target_weight_kg - weight_kg
+    if to_change == 0:
+        return None
+    distance = abs(to_change)
+    # Use the goal's healthy rate of change in either direction: the target
+    # itself decides whether that means losing or gaining.
+    slow, fast = sorted((abs(low), abs(high)))
 
     def after(rate: float) -> date:
-        return today + timedelta(days=round(to_gain / rate * 7))
+        return today + timedelta(days=round(distance / rate * 7))
 
-    return GoalEstimate(target_weight_kg=round(target_weight_kg, 1), to_gain_kg=round(to_gain, 1),
-                        estimated_date=after((low + high) / 2), earliest_date=after(high),
-                        latest_date=after(low))
+    return GoalEstimate(target_weight_kg=round(target_weight_kg, 1), to_gain_kg=round(to_change, 1),
+                        estimated_date=after((slow + fast) / 2), earliest_date=after(fast),
+                        latest_date=after(slow))
 
 
 def targets_for_profile(profile) -> NutritionTargets:

@@ -3,7 +3,7 @@ Exercise images and animations (no Telegram code).
 
 Image files live in assets/exercises/ and are named after the exercise id:
   {id}-start.webp + {id}-peak.webp  -> shown as a looping animation
-  {id}.webp                         -> single image (e.g. plank-main.webp)
+  {id}.webp or {id}-main.webp       -> single image (e.g. plank-main.webp)
 If start/peak are missing we fall back to the single image; if only one of
 start/peak exists, that one is shown as a still image.
 
@@ -81,7 +81,9 @@ def find_images(exercise_id: str, image_dir: Path | None = None) -> ExerciseImag
     peak = _find(f"{exercise_id}-peak", image_dir)
     if start and peak:
         return ExerciseImages(start=start, peak=peak)
-    single = _find(exercise_id, image_dir)
+    # RepDB names single-frame pictures "<id>-main.webp"; our curated ones use
+    # the bare "<id>.webp". Accept both so imported exercises find their image.
+    single = _find(exercise_id, image_dir) or _find(f"{exercise_id}-main", image_dir)
     if single:
         return ExerciseImages(single=single)
     return ExerciseImages(start=start, peak=peak)  # one of them, or nothing

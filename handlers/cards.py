@@ -23,7 +23,7 @@ from aiogram.types import (
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.models import Exercise, MediaCache, PlanExercise
-from keyboards.exercises import CardCB, card_keyboard
+from keyboards.exercises import CardCB, callback_token, card_keyboard
 from services import exercises as exercise_service
 from services import plans, users
 from services.exercise_media import build_media
@@ -227,14 +227,20 @@ async def _log_button(callback: CallbackQuery, data: CardCB, bot: Bot,
     if user is None or user.profile is None:
         await callback.answer(t("need_profile"), show_alert=True)
         return
-    exercise = await exercise_service.get_exercise(session, data.ex)
     day_index = None
+    exercise = None
     if data.ctx == "day" and data.ref.isdigit():
         entry = await plans.get_plan_exercise(session, user, int(data.ref))
         if entry is None:
             await callback.answer(t("plan_changed"), show_alert=True)
             return
         day_index = entry.day.day_index
+        exercise = entry.exercise
+    else:
+        exercise = await exercise_service.get_exercise(session, data.ex)
+        if exercise is None and data.ex.startswith("~"):
+            items = await exercise_service.library_exercises(session, data.ref, user.profile)
+            exercise = next((ex for ex in items if callback_token(ex.id) == data.ex), None)
     if exercise is None:
         await callback.answer(t("stale_button"))
         return
@@ -251,16 +257,17 @@ async def _library_button(callback: CallbackQuery, data: CardCB, session: AsyncS
         await callback.answer(t("library_empty"))
         return
     ids = [ex.id for ex in items]
+    current_id = next((i for i in ids if callback_token(i) == data.ex), None)
 
     if data.action == "next":
-        index = (ids.index(data.ex) + 1) % len(ids) if data.ex in ids else 0
+        index = (ids.index(current_id) + 1) % len(ids) if current_id in ids else 0
         await callback.answer()
         await show_card(callback, session, Card(items[index], "lib", data.ref, index + 1, len(items)))
         return
 
     # Substitute
     catalog = await exercise_service.load_catalog(session)
-    current = catalog.get(data.ex)
+    current = catalog.get(current_id) if current_id else None
     if current is None:
         await callback.answer(t("stale_button"))
         return
@@ -297,7 +304,7 @@ async def _day_button(callback: CallbackQuery, data: CardCB, session: AsyncSessi
         return
 
     # Substitute: swap the exercise in the user's plan.
-    if entry.exercise_id != data.ex:
+    if callback_token(entry.exercise_id) != data.ex:
         await callback.answer(t("stale_button"))
         return
     updated = await plans.substitute_in_plan(session, user, entry)

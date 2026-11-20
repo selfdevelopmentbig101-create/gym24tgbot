@@ -33,6 +33,7 @@ class MiniAppFiles(StaticFiles):
     """
 
     async def get_response(self, path: str, scope: Scope):
+        path = path.replace("\\", "/")  # Starlette hands out OS separators on Windows
         if path == "api" or path.startswith("api/"):
             raise StarletteHTTPException(status_code=404)  # never hide API typos behind the app
         try:

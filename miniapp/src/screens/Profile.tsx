@@ -79,7 +79,10 @@ export function Profile({ t, me, config, saving, onLanguage, onDeleted }: {
           <p className="small">{xpLine(view, t)}</p>
           <ol className="rank-steps" aria-hidden>
             {view.levels.map((l, i) => (
-              <li key={l.key} className={i <= view.level.index ? "rank-on" : ""}>{t(("rank_" + l.key) as TextKey)}</li>
+              <li key={l.key}
+                  className={i < view.level.index ? "rank-on" : i === view.level.index ? "rank-on rank-current" : ""}>
+                {t(("rank_" + l.key) as TextKey)}
+              </li>
             ))}
           </ol>
           <div className="char-chips">

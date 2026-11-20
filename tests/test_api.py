@@ -149,11 +149,15 @@ async def test_static_files_and_mini_app_caching(session_factory, tmp_path, monk
     images = tmp_path / "images"
     images.mkdir()
     (images / "squat-start.webp").write_bytes(b"RIFF....WEBP")
+    levels = tmp_path / "levels"
+    levels.mkdir()
+    (levels / "male_1_rookie.png").write_bytes(b"\x89PNG....")
     build = tmp_path / "dist"
     (build / "assets").mkdir(parents=True)
     (build / "index.html").write_text("<!doctype html><title>Gym24</title>")
     (build / "assets" / "index-abc123.js").write_text("console.log(1)")
     monkeypatch.setattr(api_main, "EXERCISE_IMAGES", images)
+    monkeypatch.setattr(api_main, "LEVEL_IMAGES", levels)
     monkeypatch.setattr(api_main, "MINIAPP_BUILD", build)
 
     app = api_main.create_app(session_factory=session_factory, bot_token=TOKEN)
@@ -161,6 +165,10 @@ async def test_static_files_and_mini_app_caching(session_factory, tmp_path, monk
         image = await c.get("/static/exercises/squat-start.webp")
         assert image.status_code == 200 and image.headers["cache-control"] == "public, max-age=604800"
         assert (await c.get("/static/exercises/missing.webp")).status_code == 404
+
+        art = await c.get("/static/levels/male_1_rookie.png")
+        assert art.status_code == 200 and art.headers["cache-control"] == "public, max-age=604800"
+        assert (await c.get("/static/levels/missing.png")).status_code == 404
 
         page = await c.get("/")
         assert "Gym24" in page.text and page.headers["cache-control"] == "no-cache"

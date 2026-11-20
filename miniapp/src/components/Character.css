@@ -1,23 +1,17 @@
 /* Character (components/Character.tsx), its Home card and the celebration overlay. Tokens only. */
 
-.character { display: block; overflow: visible; }
+.character { display: block; width: min(100%, var(--character-size, 140px)); height: auto; overflow: visible; flex: 0 1 auto; }
+.character-art { width: 100%; height: 100%; }
 .character-celebrating { animation: char-bounce 1.2s var(--ease-out) infinite; }
 .character-tired { opacity: 0.9; }
-.character-sparkles { animation: char-twinkle 1.4s ease-in-out infinite; }
 
 @keyframes char-bounce {
   0%, 100% { transform: translateY(0); }
   40% { transform: translateY(-6px); }
 }
 
-@keyframes char-twinkle {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.35; }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .character-celebrating,
-  .character-sparkles { animation: none; }
+  .character-celebrating { animation: none; }
 }
 
 /* ---------- Home card (medium) ---------- */

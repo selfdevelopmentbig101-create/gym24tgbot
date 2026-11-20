@@ -44,8 +44,11 @@ class ProfileRules(BaseModel):
     age: tuple[int, int]
     height_cm: tuple[float, float]
     weight_kg: tuple[float, float]
+    target_weight_kg: tuple[float, float]
     training_days: tuple[int, int]
     goals: list[Goal]
+    goals_by_sex: dict[Sex, list[Goal]] = Field(
+        description="The goal cards the app shows for each answer to the sex question")
     sexes: list[Sex]
     experience: list[Experience]
     equipment: list[Equipment]
@@ -85,7 +88,7 @@ class ProfilePatch(BaseModel):
 
 class GoalOut(BaseModel):
     target_weight_kg: float
-    to_gain_kg: float
+    to_gain_kg: float = Field(description="Weight to gain; negative = weight to lose")
     estimated_date: date
     earliest_date: date
     latest_date: date
@@ -98,10 +101,12 @@ class TargetsOut(BaseModel):
     fat_g: int
     bmr: int
     tdee: int
-    surplus: int = Field(description="Calories above maintenance (0 for recomposition)")
+    surplus: int = Field(description="Calories above maintenance; negative = deficit")
     protein_g_per_kg: float
-    weekly_gain_kg: tuple[float, float]
+    weekly_gain_kg: tuple[float, float] = Field(
+        description="Healthy weekly weight change; negative values mean weight loss")
     goal: GoalOut | None = Field(description="null: no goal weight, already reached, or recomposition")
+    profile_goal: Goal | None = Field(default=None, description="The goal the targets were calculated for")
     notes: list[str] = Field(description="Advice keys, e.g. note_under_18")
 
 

@@ -49,6 +49,19 @@ async def test_plan_needs_a_profile(client):
     assert response.status_code == 409 and response.json()["detail"] == "profile_required"
 
 
+# ---------- onboarding preview ----------
+
+async def test_split_preview_needs_no_profile(client):
+    preview = await call(client, "post", "/api/plan/preview",
+                         {"experience": "beginner", "equipment": "bodyweight", "injuries": [], "days": 4})
+    assert preview["split"] == "upper_lower"
+    assert len(preview["days"]) == 4
+    assert [d["name_key"] for d in preview["days"]] == ["upper", "lower", "upper", "lower"]
+    assert all(day["exercises"] for day in preview["days"])
+    assert {"exercise_id", "name", "sets", "rep_min", "rep_max", "timed", "rest_seconds"} <= \
+        set(preview["days"][0]["exercises"][0])
+
+
 async def test_default_program_with_energy_and_volume(client):
     await set_profile(client)
     plan = await call(client, "get", "/api/plan")
